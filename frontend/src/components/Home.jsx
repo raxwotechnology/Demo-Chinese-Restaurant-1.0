@@ -1,7 +1,7 @@
 // src/components/Home.jsx
 import React from "react";
 import { Link } from "react-router-dom";
-import LogoImage from "../upload/logo.png"; 
+import LogoImage from "../upload/logo.jpg"; 
 
 
 

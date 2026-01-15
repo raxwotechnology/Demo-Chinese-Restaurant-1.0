@@ -42,11 +42,11 @@ const DailyReport = () => {
 
     try {
       const [summaryRes, ordersRes] = await Promise.all([
-        axios.get("https://gasmachineserestaurantrms.onrender.com/api/auth/admin/summary", {
+        axios.get("https://gasmachineserestaurantapp.onrender.com/api/auth/admin/summary", {
           headers: { Authorization: `Bearer ${token}` },
           params: { startDate, endDate }
         }),
-        axios.get("https://gasmachineserestaurantrms.onrender.com/api/auth/orders", {
+        axios.get("https://gasmachineserestaurantapp.onrender.com/api/auth/orders", {
           headers: { Authorization: `Bearer ${token}` },
           params: { startDate, endDate }
         })
@@ -344,7 +344,7 @@ const DailyReport = () => {
                 ) : (
                   <div style={{ maxHeight: "1000px", overflowY: "auto" }}>
                     <ul className="list-group list-group-flush">
-                      {summary.topMenus.slice(0, 10).map((item, idx) => (
+                      {summary.topMenus.map((item, idx) => (
                         <li key={idx} className="list-group-item d-flex justify-content-between align-items-center py-1">
                           <span>{item.name}</span>
                           <span className="badge bg-dark">{item.count}</span>
