@@ -15,7 +15,7 @@ const SignupForm = ({ role, title }) => {
     setLoading(true); // 👈 Start loading
 
     try {
-      await axios.post("https://gasmachineserestaurantapp.onrender.com/api/auth/signup", {
+      await axios.post("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/signup", {
         name,
         email,
         password,

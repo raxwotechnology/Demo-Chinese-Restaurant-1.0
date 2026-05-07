@@ -18,7 +18,7 @@ const CustomerList = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        "https://gasmachineserestaurantapp.onrender.com/api/auth/customers-list",
+        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/customers-list",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setCustomers(res.data);

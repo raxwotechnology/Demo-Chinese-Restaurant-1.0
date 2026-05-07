@@ -95,7 +95,7 @@ const AdminDashboard = () => {
           break;
       }
 
-      const res = await axios.get("https://gasmachineserestaurantapp.onrender.com/api/auth/admin/summary", {
+      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/admin/summary", {
         headers: { Authorization: `Bearer ${token}` },
         params: payload
       });

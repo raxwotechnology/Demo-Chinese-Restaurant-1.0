@@ -30,7 +30,7 @@ const MonthlyReport = () => {
       const token = localStorage.getItem("token");
       try {
         const res = await axios.get(
-          `https://gasmachineserestaurantapp.onrender.com/api/auth/report/monthly?month=${parseInt(month) + 1}&year=${parseInt(year)}`,
+          `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/report/monthly?month=${parseInt(month) + 1}&year=${parseInt(year)}`,
           {
             headers: { Authorization: `Bearer ${token}` }
           }

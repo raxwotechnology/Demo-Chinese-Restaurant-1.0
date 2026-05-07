@@ -14,7 +14,7 @@ const AdminRefreshStatus = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://gasmachineserestaurantapp.onrender.com/api/auth/refresh-status",
+          "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/refresh-status",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setRefreshed(res.data.refreshed);
@@ -36,7 +36,7 @@ const AdminRefreshStatus = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
-        "https://gasmachineserestaurantapp.onrender.com/api/auth/refresh-status/reset",
+        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/refresh-status/reset",
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

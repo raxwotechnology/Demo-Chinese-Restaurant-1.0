@@ -17,7 +17,7 @@ const AdminServiceCharge = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        "https://gasmachineserestaurantapp.onrender.com/api/auth/admin/service-charge",
+        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/admin/service-charge",
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -42,7 +42,7 @@ const AdminServiceCharge = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.put(
-        "https://gasmachineserestaurantapp.onrender.com/api/auth/admin/service-charge",
+        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/admin/service-charge",
         serviceCharge,
         {
           headers: { Authorization: `Bearer ${token}` }

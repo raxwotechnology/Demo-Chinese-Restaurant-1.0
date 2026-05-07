@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const BASE_URL = "https://gasmachineserestaurantapp.onrender.com/api/auth/refresh-status";
+const BASE_URL = "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/refresh-status";
 
 const useRefreshStatus = () => {
   const [refreshed, setRefreshed] = useState(true);
