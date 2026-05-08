@@ -89,7 +89,12 @@ exports.login = async (req, res) => {
     { expiresIn: "1d" }
   );
 
-  res.json({ token, role: user.role });
+  res.json({ 
+    token, 
+    role: user.role,
+    _id: user._id,
+    name: user.name
+  });
 };
 
 
