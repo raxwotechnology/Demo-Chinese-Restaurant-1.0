@@ -1,584 +1,146 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { ToastContainer, toast } from "react-toastify";
+import {
+  Search,
+  ShoppingCart,
+  User,
+  Trash2,
+  Plus,
+  Minus,
+  Utensils,
+  ArrowRight,
+  Printer,
+  X,
+  Phone,
+  ChevronDown,
+  ChevronUp,
+  Tag,
+  CreditCard,
+  Layers,
+  ChefHat,
+  Monitor
+} from "lucide-react";
 import PaymentModal from "./PaymentModal";
 import ReceiptModal from "./ReceiptModal";
-import 'react-toastify/dist/ReactToastify.css'; 
-import AsyncSelect from 'react-select/async';
-import makeAnimated from 'react-select/animated';
-import Select from 'react-select';
-import { createFilter } from 'react-select';
-import CreatableSelect from 'react-select/creatable';
+import API_BASE_URL from "../apiConfig";
+import "react-toastify/dist/ReactToastify.css";
+import "../styles/PremiumUI.css";
 
 const CashierLanding = () => {
   const [menus, setMenus] = useState([]);
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState({
-    phone: "",
-    name: "",
-    orderType: "takeaway",
-    tableNo: "",
-    deliveryType: "Customer Pickup", // e.g., "Customer Pickup" or "Delivery Service"
-    deliveryPlaceId: "", // ✅ NEW: store selected place ID
-    deliveryNote: ""
+    phone: "", name: "", orderType: "takeaway", tableNo: "", deliveryType: "Customer Pickup", deliveryPlaceId: "", deliveryNote: ""
   });
+
   const [receiptOrder, setReceiptOrder] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orderData, setOrderData] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [serviceChargeSettings, setServiceChargeSettings] = useState({
-    dineInCharge: 0,
-    isActive: false
-  });
-  // const [deliveryChargeSettings, setDeliveryChargeSettings] = useState({
-  //   amount: 0,
-  //   isActive: false
-  // });
-  const [deliveryPlaces, setDeliveryPlaces] = useState([]); // ✅ new state
-  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [sizeFilter, setSizeFilter] = useState(""); // "", "M", or "L"
-  const [menuPopularity, setMenuPopularity] = useState({}); // e.g., { "Pepperoni Pizza": 42, ... }
-  
-  const [numberPadTarget, setNumberPadTarget] = useState(null); // 'phone' or 'tableNo'
-  const [showNumberPad, setShowNumberPad] = useState(false);
-  const [customerSearchResults, setCustomerSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [waiters, setWaiters] = useState([]);
-  const [selectedWaiterId, setSelectedWaiterId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isIdentityExpanded, setIsIdentityExpanded] = useState(true);
 
-  const [selectedMenuItem, setSelectedMenuItem] = useState(null);
-  const [itemQuantity, setItemQuantity] = useState(0);
-  const [tempStock, setTempStock] = useState({}); // e.g., { "menuId1": 5, "menuId2": 10 }
+  const symbol = localStorage.getItem("currencySymbol") || "$";
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitLock, setSubmitLock] = useState(false);
-
-  // Load menus and service charge
   useEffect(() => {
-    fetchMenus();
-    fetchServiceCharge();
-    // fetchDeliveryCharge();
-    fetchDeliveryPlaces();
-    fetchOrdersAndComputePopularity();
-    fetchWaiters();
+    fetchInitialData();
   }, []);
 
-  // Auto-fill customer name when phone changes
-  useEffect(() => {
-    if (!customer.phone) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/customer", {
-          params: { phone: customer.phone },
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (res.data?.name && !customer.name) {
-          setCustomer((prev) => ({ ...prev, name: res.data.name }));
-        }
-      } catch (err) {
-        console.error("Auto-fill failed:", err.message);
-      }
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [customer.phone]);
-
-  useEffect(() => {
-    if (customer.phone.length >= 10) {
-      // Trigger auto-fill as before
-      const timer = setTimeout(async () => {
-        try {
-          const token = localStorage.getItem("token");
-          const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/customer", {
-            params: { phone: customer.phone },
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.data?.name && !customer.name) {
-            setCustomer((prev) => ({ ...prev, name: res.data.name }));
-          }
-        } catch (err) {
-          console.error("Auto-fill failed:", err.message);
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [customer.phone]);
-
-  const fetchWaiters = async () => {
+  const fetchInitialData = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/employees", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      // Filter employees with role "waiter" (adjust field name if needed, e.g., "role" or "position")
-      const waiterList = res.data.filter(emp => 
-        emp.role?.toLowerCase() === "waiter" || emp.position?.toLowerCase() === "waiter"
-      );
-
-      setWaiters(waiterList);
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BASE_URL}/api/auth/menus`, config);
+      setMenus(res.data || []);
+      setCategories([...new Set(res.data.map(m => m.category).filter(Boolean))]);
     } catch (err) {
-      console.error("Failed to load waiters:", err.message);
-      toast.error("Could not load waiters");
+      toast.error("Terminal sync failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleOrderTypeChange = (e) => {
-    const newType = e.target.value;
+  const filteredMenus = menus.filter(m =>
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    (!selectedCategory || m.category === selectedCategory)
+  );
 
-    setCustomer((prev) => {
-      // Start with the current customer state
-      const updated = { ...prev, orderType: newType };
-
-      if (newType === "table") {
-        // Reset all takeaway-related fields
-        updated.deliveryType = "";
-        updated.deliveryPlaceId = "";
-        updated.deliveryNote = "";
-        // Keep tableNo? You might want to clear it too for a fresh start
-        // updated.tableNo = ""; // optional — uncomment if you want to clear tableNo too
-      } else if (newType === "takeaway") {
-        // Reset table-specific fields
-        updated.tableNo = "";
-        // Waiter is only for "table", so clear it
-        // (you already do this via setSelectedWaiterId below)
-      }
-
-      return updated;
-    });
-
-    // Always clear waiter when not "table"
-    if (newType !== "table") {
-      setSelectedWaiterId("");
-    }
-  };
-
-  const handlePhoneChange = async (value) => {
-    const digits = value.replace(/\D/g, '');
-    setCustomer(prev => ({ ...prev, phone: digits, name: '' }));
-    setCustomerSearchResults([]);
-
-    if (digits.length >= 2) {
-      setIsSearching(true);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(
-          "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/customers-search",
-          {
-            params: { q: digits },
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-        setCustomerSearchResults(res.data || []);
-      } catch (err) {
-        console.error("Customer search failed:", err);
-        toast.error("Search failed");
-      } finally {
-        setIsSearching(false);
-      }
-    }
-  };
-
-  const handleNumberPadInput = (value) => {
-    if (!numberPadTarget) return;
-
-    if (numberPadTarget === 'phone') {
-      // Reuse the same logic that handles search
-      const newPhone = (customer.phone || '') + value;
-      handlePhoneChange(newPhone); // 👈 this triggers search
-    } else if (numberPadTarget === 'tableNo') {
-      setCustomer(prev => ({
-        ...prev,
-        tableNo: (prev.tableNo || '') + value
-      }));
-    } else if (numberPadTarget === 'quantity') {
-      // Update itemQuantity via number pad
-      setItemQuantity(prev => {
-        const newQty = parseInt((prev.toString() + value)) || 0;
-        const max = selectedMenuItem ? (tempStock[selectedMenuItem._id] || 0) : 0;
-
-        if (newQty > max) {
-          toast.warn(`Only ${max} available for "${selectedMenuItem.name}"!`);
-          return prev; // keep previous value
-        }
-        return Math.min(newQty, max);
-      });
-    }
-  };
-
-  const handleBackspace = () => {
-    if (!numberPadTarget) return;
-
-    if (numberPadTarget === 'phone') {
-      const newPhone = (customer.phone || '').slice(0, -1);
-      handlePhoneChange(newPhone); // 👈 triggers search (or clears results if <2 digits)
-    } else if (numberPadTarget === 'tableNo') {
-      setCustomer(prev => ({
-        ...prev,
-        tableNo: (prev.tableNo || '').slice(0, -1)
-      }));
-    } else if (numberPadTarget === 'quantity') {
-      setItemQuantity(prev => {
-        const str = prev.toString();
-        if (str.length <= 1) return 0;
-        const newQty = parseInt(str.slice(0, -1)) || 0;
-        return newQty;
-      });
-    }
-  };
-
-  const fetchMenus = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/menus", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMenus(res.data);
-      const uniqueCategories = [...new Set(res.data.map(menu => menu.category).filter(Boolean))];
-      setCategories(uniqueCategories);
-      
-      // ✅ Initialize tempStock from currentQty
-      const initialTempStock = {};
-      res.data.forEach(menu => {
-        initialTempStock[menu._id] = menu.currentQty;
-      });
-      setTempStock(initialTempStock);
-
-      setLoadingCategories(false);
-    } catch (err) {
-      console.error("Failed to load menus:", err.message);
-      setLoadingCategories(false); // Ensure loading stops even on error
-    }
-  };
-
-  const loadCustomerOptions = async (inputValue) => {
-    if (!inputValue.trim()) return [];
-
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/customers-search",
-        {
-          params: { q: inputValue },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      return res.data.map(cust => ({
-        value: cust.phone,
-        label: `${cust.name || 'Unnamed'} (${cust.phone})`,
-        name: cust.name || ''
-      }));
-    } catch (err) {
-      console.error("Customer search failed:", err);
-      toast.error("Search failed");
-      return [];
-    }
-  };
-
-  const fetchOrdersAndComputePopularity = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/orders", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const orders = res.data; // assume this is an array of orders
-
-      // Count occurrences of each menu item name
-      const popularityMap = {};
-      orders.forEach(order => {
-        if (order.items && Array.isArray(order.items)) {
-          order.items.forEach(item => {
-            const name = item.name;
-            if (name) {
-              popularityMap[name] = (popularityMap[name] || 0) + item.quantity;
-            }
-          });
-        }
-      });
-
-      setMenuPopularity(popularityMap);
-    } catch (err) {
-      console.error("Failed to load order history for sorting:", err.message);
-      // Optional: toast.warning("Could not sort by popularity");
-    }
-  };
-
-  const fetchServiceCharge = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await axios.get(
-      "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/admin/service-charge",
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
-
-    const { dineInCharge, isActive } = res.data;
-
-    setServiceChargeSettings({
-      dineInCharge,
-      isActive: isActive === true || isActive === "true" // ✅ ensures boolean
-    });
-  } catch (err) {
-    console.error("Failed to load service charge:", err.message);
-    console.error("Failed to load service charge:", err.response?.data || err.message);
-
-  }
-  };
-
-  // const fetchDeliveryCharge = async () => {
-  //   try {
-  //     const token = localStorage.getItem("token");
-  //     const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/admin/delivery-charge", {
-  //       headers: { Authorization: `Bearer ${token}` }
-  //     });
-  //     setDeliveryChargeSettings(res.data);
-  //   } catch (err) {
-  //     console.error("Failed to load delivery charge:", err.message);
-  //   }
-  // };
-
-  const fetchDeliveryPlaces = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/delivery-charges", { // ✅ updated endpoint
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setDeliveryPlaces(res.data); // ✅ store array of places
-    } catch (err) {
-      console.error("Failed to load delivery places:", err.message);
-      toast.error("Failed to load delivery zones");
-    }
-  };
-
-  const cleanMenuName = (name) => {
-    const match = name.match(/^[^a-zA-Z]*([a-zA-Z].*)/);
-    return match ? match[1] : name; // fallback to original if no letter found
-  };
-
-  // Add item to cart
   const addToCart = (menu) => {
-    const { _id, quantity = 1 } = menu;
-
-    // ✅ Check against tempStock, not original stock
-    const available = tempStock[_id] || 0;
-    if (quantity > available) {
-      toast.warn(`Only ${available} of "${menu.name}" available!`);
+    if (menu.currentQty <= 0) {
+      toast.warn("Product out of stock");
       return;
     }
-
-    const cleanedName = cleanMenuName(menu.name);
-    
-    const existing = cart.find((item) => item._id === menu._id);
-
+    const existing = cart.find(i => i._id === menu._id);
     if (existing) {
-      setCart(
-        cart.map((item) =>
-          item._id === _id ? { ...item, quantity: item.quantity + quantity } : item
-        )
-      );
+      setCart(cart.map(i => i._id === menu._id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
-      setCart([...cart, { ...menu, name: cleanedName, quantity }]);
+      setCart([...cart, { ...menu, quantity: 1 }]);
     }
-
-    // ✅ Deduct from tempStock
-    setTempStock(prev => ({
-      ...prev,
-      [_id]: (prev[_id] || 0) - quantity
-    }));
+    setMenus(menus.map(m => m._id === menu._id ? { ...m, currentQty: m.currentQty - 1 } : m));
+    if (isIdentityExpanded) setIsIdentityExpanded(false);
   };
 
-  // Remove item from cart
-  const removeFromCart = (menu) => {
-    const existing = cart.find(item => item._id === menu._id);
-    if (!existing) return;
-
-    let newCart;
-    if (existing.quantity <= 1) {
-      newCart = cart.filter(item => item._id !== menu._id);
+  const updateQty = (id, delta) => {
+    const item = cart.find(i => i._id === id);
+    if (delta > 0) {
+      const originalMenu = menus.find(m => m._id === id);
+      if (originalMenu.currentQty <= 0) {
+        toast.warn("Inventory limit reached");
+        return;
+      }
+      setCart(cart.map(i => i._id === id ? { ...i, quantity: i.quantity + 1 } : i));
+      setMenus(menus.map(m => m._id === id ? { ...m, currentQty: m.currentQty - 1 } : m));
     } else {
-      newCart = cart.map(item =>
-        item._id === menu._id ? { ...item, quantity: item.quantity - 1 } : item
-      ).filter(item => item.quantity > 0);
+      if (item.quantity <= 1) {
+        setCart(cart.filter(i => i._id !== id));
+      } else {
+        setCart(cart.map(i => i._id === id ? { ...i, quantity: i.quantity - 1 } : i));
+      }
+      setMenus(menus.map(m => m._id === id ? { ...m, currentQty: m.currentQty + 1 } : m));
     }
-
-    setCart(newCart);
-
-    // ✅ Return 1 unit to tempStock
-    setTempStock(prev => ({
-      ...prev,
-      [menu._id]: (prev[menu._id] || 0) + 1
-    }));
   };
 
-  const loadMenuOptions = (inputValue) => {
-    if (!inputValue?.trim()) {
-      // Return all in-stock (temp) items when no search
-      return menus
-        .filter(menu => (tempStock[menu._id] || 0) > 0)
-        .map(menu => ({
-          ...menu,
-          label: `${menu.name} (${symbol}${menu.price.toFixed(2)}) — Stock: ${tempStock[menu._id] || 0}`,
-          value: menu._id
-        }));
-    }
+  const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
-    return menus
-      .filter(menu =>
-        menu.name.toLowerCase().includes(inputValue.toLowerCase()) &&
-        (tempStock[menu._id] || 0) > 0
-      )
-      .map(menu => ({
-        ...menu,
-        label: `${menu.name} (${symbol}${menu.price.toFixed(2)}) — Stock: ${tempStock[menu._id] || 0}`,
-        value: menu._id
-      }));
-  };
-
-  const filterMenuOptions = (inputValue) => {
-    const filtered = menus.filter(menu => {
-      const available = tempStock[menu._id] || 0;
-      const matchesSearch = !inputValue || menu.name.toLowerCase().includes(inputValue.toLowerCase());
-      return matchesSearch && available > 0;
-    });
-
-    return filtered.map(menu => ({
-      ...menu,
-      value: menu._id,
-      label: `${menu.name} (${symbol}${menu.price.toFixed(2)}) — Stock: ${tempStock[menu._id] || 0}`
-    }));
-  };
-
-  // Proceed to payment
-  const goToPayment = () => {
-    const { phone, name, orderType, tableNo, deliveryType, deliveryPlaceId } = customer;
-
-    // Always required
-    if (!phone.trim()) {
-      toast.warn("Phone number is required");
-      return;
-    }
-    if (!name.trim()) {
-      toast.warn("Customer name is required");
-      return;
-    }
-    if (cart.length === 0) {
-      toast.warn("Please add at least one item to the order");
-      return;
-    }
-
-    // Dine-in specific
-    if (orderType === "table") {
-      if (!tableNo.trim()) {
-        toast.warn("Table number is required for Dine-In orders");
-        return;
-      }
-      if (!selectedWaiterId) {
-        toast.warn("Please assign a waiter for Dine-In orders");
-        return;
-      }
-    }
-
-    // Takeaway specific
-    if (orderType === "takeaway") {
-      if (!deliveryType) {
-        toast.warn("Please select a Delivery Type");
-        return;
-      }
-
-      if (deliveryType === "Delivery Service" && !deliveryPlaceId) {
-        toast.warn("Please select a Delivery Place");
-        return;
-      }
-    }
-
-    const subtotal = cart.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    let serviceCharge = 0;
-    let deliveryCharge = 0;
-    let finalTotal = subtotal;
-
-    // Apply service charge
-    if (customer.orderType === "table" && serviceChargeSettings.isActive) {
-      serviceCharge = subtotal * (serviceChargeSettings.dineInCharge / 100);
-      finalTotal += serviceCharge;
-    }
-
-    // Apply delivery charge
-    if (customer.orderType === "takeaway" && customer.deliveryType === "Delivery Service") {
-      deliveryCharge = selectedDeliveryPlace.charge;
-      finalTotal += deliveryCharge;
-    }
-    
+  const handleCheckout = () => {
+    if (cart.length === 0) return toast.warn("Selection queue is empty");
+    // if (!customer.phone || !customer.name) return toast.warn("Customer identification required");
 
     setOrderData({
-      customerName: name,
-      customerPhone: phone,
-      tableNo: customer.orderType === "takeaway" ? "Takeaway" : customer.tableNo,
-      items: cart.map((item) => ({
-        menuId: item._id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        imageUrl: item.imageUrl
-      })),
+      ...customer,
+      items: cart,
       subtotal,
-      serviceCharge,
-      deliveryType: customer.orderType === "takeaway" ? customer.deliveryType : null,
-      deliveryCharge,
-      totalPrice: finalTotal
+      totalPrice: subtotal
     });
-
     setShowPaymentModal(true);
   };
 
-  // Confirm order and send to backend
+  const [processing, setProcessing] = useState(false);
 
-  const submitConfirmedOrder = async (paymentData) => {
-    if (submitLock) return;
-    setSubmitLock(true);
-    setIsSubmitting(true); // ✅ Start loading
+  const saveOrder = async (paymentData) => {
     try {
+      setProcessing(true);
       const token = localStorage.getItem("token");
-      // const invoiceNo = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-      // Get last invoice number from localStorage, default to 99 so next is 100
-
-      // let lastInvoiceNo = parseInt(localStorage.getItem("lastInvoiceNo")) || 99;
-      // lastInvoiceNo += 1;
-      // localStorage.setItem("lastInvoiceNo", lastInvoiceNo.toString());
-      // const invoiceNo = `INV-${lastInvoiceNo}`;
-
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-      const day = String(now.getDate()).padStart(2, '0');
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
-
-      const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
-      const invoiceNo = `INV-${timestamp}`;
+      const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const payload = {
-        ...customer,
-        waiterId: customer.orderType === "table" ? selectedWaiterId : null,
-        deliveryPlaceId: selectedDeliveryPlace?._id,
-        deliveryPlaceName: selectedDeliveryPlace?.placeName || null,
-        deliveryCharge: deliveryCharge,
-        ...orderData,
+        customerPhone: customer.phone,
+        customerName: customer.name,
+        tableNo: customer.orderType === 'table' ? customer.tableNo : 'Takeaway',
+        items: cart.map(item => ({
+          menuId: item._id,
+          name: item.name,
+          quantity: item.quantity
+        })),
+        deliveryType: customer.deliveryType,
+        deliveryPlaceId: customer.deliveryPlaceId,
+        deliveryNote: customer.deliveryNote,
         payment: {
           cash: paymentData.cash,
           card: paymentData.card,
@@ -586,751 +148,287 @@ const CashierLanding = () => {
           totalPaid: paymentData.totalPaid,
           changeDue: paymentData.changeDue,
           notes: paymentData.notes
-        },
+        }
       };
 
-      const res = await axios.post(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/order",
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const res = await axios.post(`${API_BASE_URL}/api/auth/order`, payload, config);
 
-      setReceiptOrder(res.data);
-      setCustomer({
-        phone: "",
-        name: "",
-        orderType: "table",
-        tableNo: "",
-        deliveryType: "Customer Pickup"
-      });
-      setCart([]);
-      fetchMenus();
       setShowPaymentModal(false);
-      toast.success("Order placed successfully!");
-
-      // navigate("/cashier-summery");
+      setReceiptOrder(res.data);
+      setCart([]);
+      setCustomer({ phone: "", name: "", orderType: "takeaway", tableNo: "", deliveryType: "Customer Pickup", deliveryPlaceId: "", deliveryNote: "" });
+      toast.success("Transaction Authorized & Synchronized");
     } catch (err) {
-      console.error("Order failed:", err.response?.data || err.message);
-      const errorMsg = err.response?.data?.error || "Failed to place order";
-      
-      if (err.response?.status === 409) {
-        toast.error("⚠️ " + errorMsg); // e.g., "This order has already been processed..."
-      } else {
-        toast.error("❌ " + errorMsg);
-      }
-      // alert("Failed to place order");
+      toast.error(err.response?.data?.error || "Transaction failure");
     } finally {
-      setIsSubmitting(false); // ✅ Stop loading
-      setSubmitLock(false); // 🔓 unlock after success OR error
+      setProcessing(false);
     }
-
   };
 
-  const filteredMenus = menus
-    .filter((menu) => {
-      const matchesSearch = menu.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = !selectedCategory || menu.category === selectedCategory;
-
-      let matchesSize = true;
-      if (sizeFilter) {
-        const parts = menu.name
-          ? menu.name.split(/\s*-\s*/).map(part => part.trim()).filter(Boolean)
-          : [];
-        const suffix = parts?.[parts.length - 1];
-        matchesSize = suffix === sizeFilter;
-      }
-
-      return matchesSearch && matchesCategory && matchesSize;
-    })
-    .sort((a, b) => {
-      const countA = menuPopularity[a.name] || 0;
-      const countB = menuPopularity[b.name] || 0;
-      return countB - countA; // most ordered first
-    });
-
-  // ✅ LIVE subtotal calculation
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const serviceCharge = customer.orderType === "table" && serviceChargeSettings.isActive
-    ? subtotal * (serviceChargeSettings.dineInCharge / 100)
-    : 0;
-  // const deliveryCharge = customer.orderType === "takeaway" && deliveryChargeSettings.isActive && customer.deliveryType === "Delivery Service"
-  //     ? deliveryChargeSettings.amount
-  //     : 0;
-  const selectedDeliveryPlace = deliveryPlaces.find(
-    (place) => place._id === customer.deliveryPlaceId
+  if (loading) return (
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-white">
+      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="spinner-border text-indigo" />
+    </div>
   );
 
-  const deliveryCharge = customer.orderType === "takeaway" &&
-                        customer.deliveryType === "Delivery Service" &&
-                        selectedDeliveryPlace
-    ? selectedDeliveryPlace.charge
-    : 0;
-
-  const finalTotal = subtotal + serviceCharge + deliveryCharge;
-
-  const symbol = localStorage.getItem("currencySymbol") || "$";
-
   return (
-    <div className="container-fluid px-4">
-      <h2 className="mb-4 text-primary border-bottom pb-2 fw-bold">Order Management</h2>
+    <div className="pos-immersive-layout">
+      <ToastContainer theme="colored" />
 
-      <div className="row g-3 position-relative">
-        <div className="col-md-9">
-          {/* Customer Info */}
-          <div className="mb-4 bg-white p-4 rounded shadow-sm" style={{ minHeight: '245px' }}>
-            <h4>Customer Details</h4>
-            <div className="row g-3 position-relative">
-              <div className="col-md-3">
-                <label>Phone *</label>
-                {/* <AsyncSelect
-                  cacheOptions
-                  defaultOptions
-                  loadOptions={loadCustomerOptions}
-                  value={customer.phone ? { value: customer.phone, label: `${customer.name || 'Unknown'} (${customer.phone})` } : null}
-                  onChange={(opt) => {
-                    if (opt) {
-                      setCustomer({ ...customer, phone: opt.value, name: opt.name });
-                    } else {
-                      setCustomer({ ...customer, phone: '', name: '' });
-                    }
-                  }}
-                  placeholder="Type phone or name..."
-                  noOptionsMessage={() => "No matching customers"}
-                  classNamePrefix="select"
-                  components={makeAnimated()}
-                /> */}
-                
-                <input
-                  type="text"
-                  value={customer.phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  onFocus={() => {
-                    setNumberPadTarget('phone');
-                    setShowNumberPad(true);
-                  }}
-                  className="form-control"
-                  placeholder="Type phone..."
-                />
-
-                {/* Search Results Dropdown */}
-                {customerSearchResults.length > 0 && (
-                  <div className="text-muted small mt-1">
-                    <ul className="list-group position-absolute z-3 w-100 shadow" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      {customerSearchResults.map((cust) => (
-                        <li
-                          key={cust._id || cust.phone}
-                          className="list-group-item list-group-item-action"
-                          onClick={() => {
-                            setCustomer({
-                              ...customer,
-                              phone: cust.phone,
-                              name: cust.name || ''
-                            });
-                            setCustomerSearchResults([]);
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {cust.name ? `${cust.name} (${cust.phone})` : cust.phone}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {isSearching && (
-                  <div className="text-muted small mt-1">Searching...</div>
-                )}
-              </div>
-
-              <div className="col-md-3">
-                <label>Name *</label>
-                <input
-                  name="name"
-                  value={customer.name}
-                  onChange={(e) =>
-                    setCustomer({
-                      ...customer,
-                      name: e.target.value
-                    })
-                  }
-                  className="form-control"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="col-md-3">
-                <label>Order Type</label>
-                <select
-                  name="orderType"
-                  value={customer.orderType}
-                  onChange={handleOrderTypeChange} 
-                  className="form-select"
-                >
-                  <option value="table">Dine In</option>
-                  <option value="takeaway">Takeaway</option>
-                </select>
-              </div>
-              
-              {/* {customer.orderType === "table" && (
-                <>
-                  <div className="col-md-3">
-                    <label>Table No</label>
-                    <input
-                      name="tableNo"
-                      value={customer.tableNo}
-                      onChange={(e) =>
-                        setCustomer({
-                          ...customer,
-                          tableNo: e.target.value
-                        })
-                      }
-                      className="form-control"
-                      placeholder="-"
-                    />
-                  </div>
-                </>
-              )} */}
-
-              {customer.orderType === "table" && (
-                <> 
-                  <div className="col-md-3">
-                    <label>Table No</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={customer.tableNo}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        setCustomer({ ...customer, tableNo: val });
-                      }}
-                      onFocus={() => {
-                        setNumberPadTarget('tableNo');
-                        setShowNumberPad(true);
-                      }}
-                      className="form-control"
-                      placeholder="-"
-                      required
-                    />
-                  </div>
-
-                  <div className="col-md-3">
-                    <label>Assign Waiter *</label>
-                    <select
-                      value={selectedWaiterId}
-                      onChange={(e) => setSelectedWaiterId(e.target.value)}
-                      className="form-select"
-                      required
-                    >
-                      <option value="">Select a waiter</option>
-                      {waiters.map((waiter) => (
-                        <option key={waiter._id} value={waiter._id}>
-                          {waiter.name || waiter.fullName || waiter._id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* Delivery Type (only for Takeaway) */}
-              {customer.orderType === "takeaway" && (
-                <div className="col-md-3">
-                  <label>Delivery Type</label>
-                  <select
-                    name="deliveryType"
-                    value={customer.deliveryType}
-                    onChange={(e) =>
-                          setCustomer({
-                            ...customer,
-                            deliveryType: e.target.value
-                          })
-                        }
-                    className="form-select"
-                  >
-                    <option value="">Select an option</option>
-                    <option value="Customer Pickup">Customer Pickup</option>
-                    <option value="Delivery Service">Delivery Service</option>
-                  </select>
-                </div>
-              )}
-
-            </div>
-            <div className="row g-3 position-relative mt-3">
-
-              {/* Delivery Note (only for Delivery Service) */}
-              {customer.orderType === "takeaway" && customer.deliveryType === "Delivery Service" && (
-                <div className="mt-3">
-                  <label>Delivery Address or Note</label>
-                  <textarea
-                    name="deliveryNote"
-                    value={customer.deliveryNote || ""}
-                    onChange={(e) =>
-                      setCustomer({
-                        ...customer,
-                        deliveryNote: e.target.value
-                      })
-                    }
-                    rows="2"
-                    className="form-control"
-                    placeholder="Enter delivery address or instructions"
-                    required
-                  ></textarea>
-                </div>
-              )}
-
-              {/* Delivery Place Selector (only for Delivery Service) */}
-              {customer.orderType === "takeaway" && customer.deliveryType === "Delivery Service" && (
-                <div className="col-md-4">
-                  <label>Delivery Place *</label>
-                  {/* <select
-                    name="deliveryPlaceId"
-                    value={customer.deliveryPlaceId}
-                    onChange={(e) =>
-                      setCustomer({
-                        ...customer,
-                        deliveryPlaceId: e.target.value
-                      })
-                    }
-                    className="form-select"
-                    required
-                  >
-                    <option value="">Select a delivery zone</option>
-                    {deliveryPlaces.map((place) => (
-                      <option key={place._id} value={place._id}>
-                        {place.placeName} ({symbol}{place.charge.toFixed(2)})
-                      </option>
-                    ))}
-                  </select> */}
-
-                  {/* <Select
-                    name="deliveryPlaceId"
-                    value={
-                      customer.deliveryPlaceId
-                        ? deliveryPlaces.find(place => place._id === customer.deliveryPlaceId)
-                          ? {
-                              value: customer.deliveryPlaceId,
-                              label: `${deliveryPlaces.find(p => p._id === customer.deliveryPlaceId).placeName} (${symbol}${deliveryPlaces.find(p => p._id === customer.deliveryPlaceId).charge.toFixed(2)})`
-                            }
-                          : null
-                        : null
-                    }
-                    onChange={(selectedOption) => {
-                      setCustomer({
-                        ...customer,
-                        deliveryPlaceId: selectedOption ? selectedOption.value : ""
-                      });
-                    }}
-                    options={deliveryPlaces.map(place => ({
-                      value: place._id,
-                      label: `${place.placeName} (${symbol}${place.charge.toFixed(2)})`
-                    }))}
-                    placeholder="Select a delivery zone..."
-                    isClearable
-                    isSearchable
-                    classNamePrefix="select"
-                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                    menuPortalTarget={document.body}
-                  /> */}
-
-                  <Select
-                    name="deliveryPlaceId"
-                    value={
-                      customer.deliveryPlaceId
-                        ? deliveryPlaces.find(place => place._id === customer.deliveryPlaceId)
-                          ? {
-                              value: customer.deliveryPlaceId,
-                              label: `${deliveryPlaces.find(p => p._id === customer.deliveryPlaceId).placeName} (${symbol}${deliveryPlaces.find(p => p._id === customer.deliveryPlaceId).charge.toFixed(2)})`
-                            }
-                          : null
-                        : null
-                    }
-                    onChange={async (selectedOption) => {
-                      if (selectedOption && selectedOption.value === "__CREATE_NEW__") {
-                        // Step 1: Get place name
-                        const placeName = prompt("Enter new delivery place name:");
-                        if (!placeName || !placeName.trim()) return;
-
-                        // Step 2: Get delivery charge
-                        const chargeStr = prompt(`Enter delivery charge for "${placeName}" (e.g., 5.99):`);
-                        const charge = parseFloat(chargeStr);
-
-                        if (isNaN(charge) || charge < 0) {
-                          toast.error("Invalid delivery charge. Must be a number ≥ 0.");
-                          return;
-                        }
-
-                        try {
-                          const token = localStorage.getItem("token");
-                          const res = await axios.post(
-                            "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/delivery-charges",
-                            { placeName: placeName.trim(), charge },
-                            { headers: { Authorization: `Bearer ${token}` } }
-                          );
-                          const newPlace = res.data;
-
-                          // Add to local state
-                          setDeliveryPlaces(prev => [...prev, newPlace]);
-
-                          // Select the newly created place
-                          setCustomer(prev => ({
-                            ...prev,
-                            deliveryPlaceId: newPlace._id
-                          }));
-
-                          toast.success(`✅ "${placeName}" added with charge ${symbol}${charge.toFixed(2)}`);
-                        } catch (err) {
-                          console.error("Failed to create delivery place:", err);
-                          toast.error("Failed to save new delivery place");
-                        }
-                      } else {
-                        // Regular selection
-                        setCustomer(prev => ({
-                          ...prev,
-                          deliveryPlaceId: selectedOption ? selectedOption.value : ""
-                        }));
-                      }
-                    }}
-                    options={[
-                      // ➕ Create option FIRST
-                      {
-                        value: "__CREATE_NEW__",
-                        label: "➕ Create New Delivery Place...",
-                        isDisabled: false
-                      },
-                      // Then existing places
-                      ...deliveryPlaces.map(place => ({
-                        value: place._id,
-                        label: `${place.placeName} (${symbol}${place.charge.toFixed(2)})`
-                      }))
-                    ]}
-                    placeholder="Select a delivery zone..."
-                    isClearable
-                    isSearchable
-                    classNamePrefix="select"
-                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                    menuPortalTarget={document.body}
-                  />
-                </div>
-              )}
-
-            </div>
+      {/* Top Navigation */}
+      <nav className="pos-nav">
+        <div className="d-flex align-items-center gap-3">
+          <div className="pos-logo-box"><Monitor size={20} /></div>
+          <h2 className="pos-brand">ROYAL POS</h2>
+        </div>
+        <div className="d-flex gap-4">
+          <div className="nav-stat">
+            <span className="tiny-caps">System Status</span>
+            <span className="status-dot online">Online</span>
+          </div>
+          <div className="nav-stat">
+            <span className="tiny-caps">Active Terminal</span>
+            <span className="fw-800">T-04</span>
           </div>
         </div>
-        <div className="col-md-3">
-          <div className="row g-0 mb-4">
-            <div className="card shadow-sm">
-              <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                <span>Enter {numberPadTarget === 'phone' ? 'Phone' : numberPadTarget === 'quantity' ? 'Quantity' : 'Table No'}</span>
+      </nav>
+
+      <div className="pos-body">
+        {/* Main Catalog */}
+        <main className="pos-catalog-section">
+          <header className="catalog-header">
+            <div className="search-pill">
+              <Search size={18} className="text-muted" />
+              <input
+                type="text"
+                placeholder="Find item or scan barcode..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="category-scroll">
+              <button
+                className={`cat-btn ${!selectedCategory ? 'active' : ''}`}
+                onClick={() => setSelectedCategory("")}
+              >
+                All Items
+              </button>
+              {categories.map(c => (
                 <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setShowNumberPad(false)}
+                  key={c}
+                  className={`cat-btn ${selectedCategory === c ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(c)}
                 >
-                  ✕
+                  {c}
                 </button>
-              </div>
-              <div className="card-body p-2">
-                <div className="row g-1">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <div key={num} className="col-4">
-                      <button
-                        className="btn btn-light w-100 py-2 border"
-                        onClick={() => handleNumberPadInput(num.toString())}
-                      >
-                        {num}
-                      </button>
+              ))}
+            </div>
+          </header>
+
+          <div className="catalog-grid-modern">
+            <AnimatePresence mode="popLayout">
+              {filteredMenus.map(menu => (
+                <motion.div
+                  key={menu._id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ y: -5 }}
+                  className={`menu-card-modern ${menu.currentQty <= 0 ? 'depleted' : ''}`}
+                  onClick={() => addToCart(menu)}
+                >
+                  <div className="menu-image-box">
+                    {menu.imageUrl ? <img src={menu.imageUrl} alt={menu.name} /> : <ChefHat size={32} opacity={0.1} />}
+                    <div className="menu-price-badge">{symbol}{menu.price}</div>
+                  </div>
+                  <div className="menu-content">
+                    <h5 className="menu-name">{menu.name}</h5>
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <span className="qty-tag">{menu.currentQty} in stock</span>
+                      <div className="add-icon-box"><Plus size={14} /></div>
                     </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </main>
+
+        {/* Action Sidebar */}
+        <aside className="pos-checkout-sidebar">
+          <div className="checkout-card">
+            {/* Customer Identity */}
+            <div className={`identity-panel ${isIdentityExpanded ? 'open' : 'closed'}`}>
+              <header onClick={() => setIsIdentityExpanded(!isIdentityExpanded)}>
+                <div className="d-flex align-items-center gap-2">
+                  <User size={16} className="text-indigo" />
+                  <span className="fw-800">CUSTOMER DETAILS</span>
+                </div>
+                {isIdentityExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </header>
+
+              <AnimatePresence>
+                {isIdentityExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="identity-body"
+                  >
+                    <div className="mb-3">
+                      <label className="tiny-caps mb-1 d-block">Phone Number</label>
+                      <input type="text" className="pos-input" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} placeholder="07x xxx xxxx" />
+                    </div>
+                    <div className="mb-3">
+                      <label className="tiny-caps mb-1 d-block">Full Name</label>
+                      <input type="text" className="pos-input" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} placeholder="Guest Name" />
+                    </div>
+                    <div className="row g-2">
+                      <div className="col-6">
+                        <label className="tiny-caps mb-1 d-block">Type</label>
+                        <select className="pos-input" value={customer.orderType} onChange={(e) => setCustomer({ ...customer, orderType: e.target.value })}>
+                          <option value="takeaway">Takeaway</option>
+                          <option value="table">Dine-In</option>
+                        </select>
+                      </div>
+                      {customer.orderType === 'table' && (
+                        <div className="col-6">
+                          <label className="tiny-caps mb-1 d-block">Table</label>
+                          <input type="text" className="pos-input" value={customer.tableNo} onChange={(e) => setCustomer({ ...customer, tableNo: e.target.value })} placeholder="No" />
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Order List */}
+            <div className="order-list-section">
+              <header className="d-flex justify-content-between align-items-center">
+                <div className="d-flex align-items-center gap-2">
+                  <ShoppingCart size={16} className="text-indigo" />
+                  <span className="fw-800">ORDER LIST</span>
+                </div>
+                <span className="badge-modern success">{cart.length} ITEMS</span>
+              </header>
+
+              <div className="cart-items-scroll">
+                <AnimatePresence mode="popLayout">
+                  {cart.map(item => (
+                    <motion.div
+                      key={item._id}
+                      layout
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="cart-item-modern"
+                    >
+                      <div className="d-flex justify-content-between mb-2">
+                        <span className="fw-700 small">{item.name}</span>
+                        <span className="fw-800 text-indigo">{symbol}{(item.price * item.quantity).toLocaleString()}</span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="text-muted tiny">{symbol}{item.price} each</span>
+                        <div className="qty-control-modern">
+                          <button onClick={() => updateQty(item._id, -1)}><Minus size={12} /></button>
+                          <span>{item.quantity}</span>
+                          <button onClick={() => updateQty(item._id, 1)}><Plus size={12} /></button>
+                        </div>
+                      </div>
+                    </motion.div>
                   ))}
-                  <div className="col-4">
-                    <button
-                      className="btn btn-light w-100 py-2 border"
-                      onClick={() => handleNumberPadInput('0')}
-                    >
-                      0
-                    </button>
+                </AnimatePresence>
+                {cart.length === 0 && (
+                  <div className="text-center py-5 opacity-20">
+                    <Layers size={48} className="mb-2" />
+                    <p className="fw-800 small">Ready for Order</p>
                   </div>
-                  <div className="col-4">
-                    <button
-                      className="btn btn-light w-100 py-2 border"
-                      onClick={handleBackspace}
-                    >
-                      ⌫
-                    </button>
-                  </div>
-                  <div className="col-4">
-                    <button
-                      className="btn btn-success w-100 py-2"
-                      onClick={() => setShowNumberPad(false)}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
+
+            {/* Total & Checkout */}
+            <footer className="checkout-footer-modern">
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted fw-700">Subtotal</span>
+                <span className="fw-800">{symbol}{subtotal.toLocaleString()}</span>
+              </div>
+              <div className="d-flex justify-content-between mb-4 pt-3 border-top">
+                <span className="fw-900 h5 m-0">TOTAL</span>
+                <span className="fw-900 h4 m-0 text-indigo">{symbol}{subtotal.toLocaleString()}</span>
+              </div>
+              <button className="btn-indigo w-100 py-4 justify-content-center" onClick={handleCheckout}>
+                <span>PROCESS PAYMENT</span>
+                <CreditCard size={20} />
+              </button>
+            </footer>
           </div>
-        </div>
+        </aside>
       </div>
 
-      <div className="row g-3">
-        <div className="col-md-4">
-          {/* Right Side - Cart & Receipt */}
-          <div className="row g-0 mb-4">
-            <div className="card shadow-sm">
-              <div className="card-header bg-success text-white">
-                <h5 className="mb-0">🛒 Current Order</h5>
-              </div>
-              <div className="card-body">
-                <ul className="list-group mb-3">
-                  {cart.length === 0 ? (
-                    <li className="list-group-item">No items added</li>
-                  ) : (
-                    cart.map((item, idx) => (
-                      <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                        <span>{item.name}</span>
-                        <span>{symbol}{(item.price * item.quantity).toFixed(2)}</span>
-                        <span className="badge bg-secondary">{item.quantity}</span>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => removeFromCart(item)}
-                        >
-                          -
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-
-                <hr />
-
-                {/* Order Summary */}
-                <div className="d-flex justify-content-between mb-2">
-                  <strong>Subtotal</strong>
-                  <span>{symbol}{subtotal.toFixed(2)}</span> {/* ✅ UPDATED */}
-                </div>
-
-                {serviceCharge > 0 && (
-                  <div className="d-flex justify-content-between mb-2">
-                    <strong>Service Charge ({serviceChargeSettings.dineInCharge}%)</strong>
-                    <span>{symbol}{serviceCharge.toFixed(2)}</span> {/* ✅ UPDATED */}
-                  </div>
-                )}
-
-                {deliveryCharge > 0 && (
-                  <div className="d-flex justify-content-between mb-2">
-                    <strong>Delivery Fee</strong>
-                    <span>{symbol}{deliveryCharge.toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div className="d-flex justify-content-between fw-bold fs-5">
-                  <strong>Total</strong>
-                  <span>{symbol}{finalTotal.toFixed(2)}</span> {/* ✅ UPDATED */}
-                </div>
-
-                <button
-                  className="btn btn-success w-100 py-2 mt-3"
-                  onClick={goToPayment}
-                  disabled={cart.length === 0}
-                >
-                  Proceed to Payment
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <style>{`
+        .pos-immersive-layout { height: 100vh; display: flex; flex-direction: column; background: #f8fafc; overflow: hidden; }
+        .pos-nav { height: 72px; background: white; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; }
+        .pos-logo-box { width: 40px; height: 40px; background: var(--p-indigo-600); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+        .pos-brand { font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem; margin: 0; letter-spacing: -0.5px; }
+        .status-dot { font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 6px; color: #10b981; }
+        .status-dot::before { content: ''; width: 8px; height: 8px; background: #10b981; border-radius: 50%; }
         
-        <div className="col-md-8">
-          <div className="bg-white p-3 mb-3 rounded shadow-sm">
-            <div className="row g-3">
-              <div className="col-md-6">
-                <label>Select Menu Item</label>
-                <Select
-                  options={menus
-                    .filter(menu => (tempStock[menu._id] || 0) > 0)
-                    .map(menu => ({
-                      ...menu,
-                      value: menu._id,
-                      label: `${menu.name} (${symbol}${menu.price.toFixed(2)}) — Stock: ${tempStock[menu._id]}`
-                    }))
-                  }
-                  value={selectedMenuItem}
-                  onChange={setSelectedMenuItem}
-                  placeholder="Search menu items..."
-                  isClearable
-                  isSearchable
-                  noOptionsMessage={() => "No in-stock items"}
-                  classNamePrefix="select"
-                  components={makeAnimated()}
-                />
-              </div>
+        .pos-body { flex: 1; display: flex; overflow: hidden; }
+        .pos-catalog-section { flex: 1; overflow-y: auto; padding: 40px; }
+        .catalog-header { margin-bottom: 40px; }
+        .search-pill { background: white; border-radius: 100px; padding: 12px 24px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-subtle); width: 400px; margin-bottom: 24px; }
+        .search-pill input { border: none; outline: none; font-size: 0.9rem; font-weight: 600; flex: 1; }
+        
+        .category-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; }
+        .cat-btn { padding: 10px 24px; border-radius: 50px; border: 1px solid var(--border-subtle); background: white; font-weight: 700; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; transition: 0.2s; white-space: nowrap; }
+        .cat-btn:hover { border-color: var(--p-indigo-600); color: var(--p-indigo-600); }
+        .cat-btn.active { background: var(--p-indigo-600); color: white; border-color: var(--p-indigo-600); }
+        
+        .catalog-grid-modern { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
+        .menu-card-modern { background: white; border-radius: 24px; overflow: hidden; cursor: pointer; border: 1px solid var(--border-subtle); box-shadow: var(--shadow-sm); transition: 0.3s; }
+        .menu-card-modern:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg); border-color: var(--p-indigo-100); }
+        .menu-image-box { height: 160px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative; }
+        .menu-image-box img { width: 100%; height: 100%; object-fit: cover; }
+        .menu-price-badge { position: absolute; bottom: 12px; right: 12px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); color: white; padding: 6px 14px; border-radius: 50px; font-weight: 800; font-size: 0.9rem; }
+        .menu-content { padding: 20px; }
+        .menu-name { font-weight: 800; font-size: 1rem; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+        .qty-tag { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); }
+        .add-icon-box { width: 32px; height: 32px; background: var(--p-indigo-50); color: var(--p-indigo-600); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        
+        .pos-checkout-sidebar { width: 440px; background: white; border-left: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 24px; }
+        .checkout-card { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .identity-panel { border: 1px solid var(--border-subtle); border-radius: 20px; margin-bottom: 24px; overflow: hidden; }
+        .identity-panel header { padding: 16px 20px; background: #f8fafc; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        .identity-body { padding: 20px; border-top: 1px solid var(--border-subtle); }
+        .pos-input { width: 100%; padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: 12px; font-size: 0.9rem; font-weight: 600; outline: none; transition: 0.2s; }
+        .pos-input:focus { border-color: var(--p-indigo-600); box-shadow: 0 0 0 3px var(--p-indigo-50); }
+        
+        .order-list-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; margin-bottom: 24px; }
+        .cart-items-scroll { flex: 1; overflow-y: auto; padding: 20px 0; }
+        .cart-item-modern { background: #f8fafc; padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid transparent; transition: 0.2s; }
+        .cart-item-modern:hover { border-color: var(--p-indigo-100); background: white; box-shadow: var(--shadow-sm); }
+        .qty-control-modern { display: flex; align-items: center; gap: 14px; background: white; padding: 4px 12px; border-radius: 50px; border: 1px solid var(--border-strong); }
+        .qty-control-modern button { border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 2px; }
+        .qty-control-modern span { font-weight: 800; font-size: 0.85rem; min-width: 20px; text-align: center; }
+        
+        .checkout-footer-modern { border-top: 1px solid var(--border-subtle); padding-top: 24px; }
+      `}</style>
 
-              <div className="col-md-2">
-                <label>Quantity</label>
-                <input
-                  type="number"
-                  min="0"
-                  max={selectedMenuItem ? tempStock[selectedMenuItem._id] || 1 : 1}
-                  className="form-control"
-                  value={itemQuantity}
-                  // onFocus={(e) => e.target.select()}
-                  onFocus={(e) => {
-                    if (selectedMenuItem) {
-                      setNumberPadTarget('quantity');
-                      setShowNumberPad(true);
-                    }
-                  }}
-                  onWheel={(e) => e.target.blur()}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 1;
-                    const max = selectedMenuItem ? tempStock[selectedMenuItem._id] || 1 : 1;
-                    if (val > max) {
-                      toast.warn(`Only ${max} available for "${selectedMenuItem.name}"!`);
-                    }
-                    setItemQuantity(Math.max(1, Math.min(val, max)));
-                  }}
-                  disabled={!selectedMenuItem}
-                />
-                {selectedMenuItem && selectedMenuItem.currentQty <= selectedMenuItem.minimumQty && (
-                  <small className="text-warning">⚠️ Low stock!</small>
-                )}
-              </div>
-              
-              <div className="col-md-4">
-                <button
-                  className="btn btn-success w-100 mt-4"
-                  onClick={() => {
-                    if (!selectedMenuItem) return;
-                    addToCart({ ...selectedMenuItem, quantity: itemQuantity });
-                    setSelectedMenuItem(null);
-                    setItemQuantity(1);
-                  }}
-                  disabled={!selectedMenuItem}
-                >
-                  Add to Order
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-3 mb-3 rounded shadow-sm">
-            <div className="row g-3">
-              <div className="col-md-4">
-                <select
-                  className="form-select"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  <option value="">All Categories</option>
-                  {loadingCategories ? (
-                    <option disabled>Loading categories...</option>
-                  ) : (
-                    categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div className="col-md-4">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <div className="col-md-4">
-                <select
-                  className="form-select"
-                  value={sizeFilter}
-                  onChange={(e) => setSizeFilter(e.target.value)}
-                >
-                  <option value="">All Sizes</option>
-                  <option value="M">Medium</option>
-                  <option value="L">Large</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="row g-3">
-            {filteredMenus.map((menu) => {
-              
-              const inStock = menu.currentQty > 0;
-              const lowStock = menu.currentQty <= menu.minimumQty;
-
-              return(
-              <div key={menu._id} className="col-12 col-md-4 col-lg-4 col-xl-3">
-                <div className="card shadow-sm h-100 border-0">
-                  {/* <img
-                    src={
-                    menu.imageUrl.startsWith("https")
-                      ? menu.imageUrl
-                      : `https://demo-chinese-restaurant-1-0.onrender.com${menu.imageUrl}`
-                    }
-                    alt={menu.name}
-                    style={{ height: "50px", width:"100%" ,objectFit: "contain" }}
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/300x200?text=No+Image";
-                    }}
-                    className="card-img-top"
-                  /> */}
-                  <div className="card-body text-center">
-                    <h6>{menu.name} <p>({menu.category})</p></h6>
-                    <p className="m-0">{symbol}{menu.price.toFixed(2)} </p>
-                    <p className="m-0">
-                      Stock:{" "}
-                    <span className={`badge ${lowStock ? "bg-warning text-dark" : "bg-success"}`}>
-                      {/* {menu.currentQty} */}
-                      {tempStock[menu._id]}
-                    </span>
-                    </p>
-                    {inStock ? (
-                    <button
-                      className="btn btn-success w-100 mt-2"
-                      onClick={() => addToCart(menu)}
-                    >
-                      Add to Order
-                    </button>
-                    ) : (
-                      <div className="text-danger mt-auto">❌ Out of Stock</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
       {showPaymentModal && (
         <PaymentModal
-          totalAmount={orderData.totalPrice}
-          subtotal={orderData.subtotal}
-          serviceCharge={orderData.serviceCharge}
-          deliveryCharge={orderData.deliveryCharge}
-          onConfirm={submitConfirmedOrder}
-          onClose={() => setShowPaymentModal(false)}
-          loading={isSubmitting}
+          handleClose={() => setShowPaymentModal(false)}
+          orderData={orderData}
+          symbol={symbol}
+          onSubmit={saveOrder}
+          processing={processing}
         />
       )}
 
       {receiptOrder && (
-        <ReceiptModal
-          order={receiptOrder}
-          onClose={() => {
-            setReceiptOrder(null);
-          }}
-        />
+        <ReceiptModal order={receiptOrder} handleClose={() => setReceiptOrder(null)} />
       )}
-      <ToastContainer />
     </div>
   );
 };

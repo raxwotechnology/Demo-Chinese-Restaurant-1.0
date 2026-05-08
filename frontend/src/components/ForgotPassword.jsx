@@ -1,73 +1,136 @@
+import API_BASE_URL from "../apiConfig";
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { FaKey, FaEnvelope, FaLock, FaArrowRight, FaShieldAlt } from "react-icons/fa";
+import "./Login.css";
 
 const ResetPassword = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [key, setKey] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleVerifyKey = async () => {
+  const handleVerifyKey = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      await axios.post("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/verify-reset-key", { key });
+      await axios.post(`${API_BASE_URL}/api/auth/verify-reset-key`, { key });
       setStep(2);
+      setLoading(false);
     } catch (err) {
       alert(err.response?.data?.message || "Invalid or expired key");
+      setLoading(false);
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      await axios.post("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/reset-password", { email, key, newPassword });
+      await axios.post(`${API_BASE_URL}/api/auth/reset-password`, { email, key, newPassword });
       alert("Password reset successful!");
-      navigate("/");
+      navigate("/cashier-login");
     } catch (err) {
       alert(err.response?.data?.message || "Password reset failed");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="container py-5" style={{ maxWidth: 500 }}>
-      <h2 className="text-center text-primary mb-4">Reset Password</h2>
+    <div className="login-wrapper bg-premium">
+      <div className="login-bg-overlay"></div>
 
-      {step === 1 && (
-        <>
-          <label>Reset Key (from Admin)</label>
-          <input
-            type="text"
-            className="form-control mb-3"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
-          <button className="btn btn-primary w-100" onClick={handleVerifyKey}>
-            Verify Key
-          </button>
-        </>
-      )}
+      <div className="login-glass-card">
+        <h2 className="login-card-title">Security Access</h2>
+        <span className="login-card-subtitle">
+          {step === 1 ? "Verify Identity" : "Create New Password"}
+        </span>
 
-      {step === 2 && (
-        <>
-          <label>Email</label>
-          <input
-            type="email"
-            className="form-control mb-3"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <label>New Password</label>
-          <input
-            type="password"
-            className="form-control mb-3"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <button className="btn btn-success w-100" onClick={handleResetPassword}>
-            Reset Password
-          </button>
-        </>
-      )}
+        {step === 1 && (
+          <form onSubmit={handleVerifyKey}>
+            <div className="login-input-group">
+              <label htmlFor="key">Reset Key (from Admin)</label>
+              <div className="login-input-wrapper">
+                <FaKey className="login-input-icon" />
+                <input
+                  type="text"
+                  className="login-input-premium"
+                  id="key"
+                  placeholder="Enter your security key"
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="login-btn-premium btn-cashier-accent"
+              disabled={loading}
+            >
+              {loading ? "Verifying..." : <>Verify Key <FaShieldAlt /></>}
+            </button>
+          </form>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handleResetPassword}>
+            <div className="login-input-group">
+              <label htmlFor="email">Email Address</label>
+              <div className="login-input-wrapper">
+                <FaEnvelope className="login-input-icon" />
+                <input
+                  type="email"
+                  className="login-input-premium"
+                  id="email"
+                  placeholder="Confirm your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="login-input-group">
+              <label htmlFor="newPassword">New Password</label>
+              <div className="login-input-wrapper">
+                <FaLock className="login-input-icon" />
+                <input
+                  type="password"
+                  className="login-input-premium"
+                  id="newPassword"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="login-btn-premium btn-cashier-accent"
+              disabled={loading}
+            >
+              {loading ? "Updating..." : <>Reset Password <FaArrowRight /></>}
+            </button>
+          </form>
+        )}
+
+        <div className="login-footer">
+          <p>
+            <Link to="/" className="premium-link">
+              Exit to Main Portal
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

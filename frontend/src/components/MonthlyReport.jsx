@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { motion } from "framer-motion";
 import { Bar } from "react-chartjs-2";
+import {
+  TrendingUp,
+  TrendingDown,
+  Scale,
+  Calendar,
+  Filter,
+  DollarSign,
+  PieChart,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw
+} from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,390 +23,201 @@ import {
   Tooltip,
   Legend
 } from "chart.js";
-import { FaMoneyBillWave, FaTruckLoading, FaFileInvoiceDollar, FaUserTie, FaChartPie, FaBalanceScale,  FaGift,  FaTools } from "react-icons/fa";
+import API_BASE_URL from "../apiConfig";
+import "../styles/PremiumUI.css";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
 
 const MonthlyReport = () => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
-
   const symbol = localStorage.getItem("currencySymbol") || "$";
-  
 
-  // Load report data based on selected month/year
   useEffect(() => {
-    const fetchReport = async () => {
-      const token = localStorage.getItem("token");
-      try {
-        const res = await axios.get(
-          `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/report/monthly?month=${parseInt(month) + 1}&year=${parseInt(year)}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-        setReportData(res.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Failed to load report:", err.response?.data || err.message);
-        alert("Failed to load monthly report");
-        setLoading(false);
-      }
-    };
-
     fetchReport();
   }, [month, year]);
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center min-vh-100">
-        <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3">Loading Monthly Report...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    !reportData ||
-    !reportData.monthlyIncome ||
-    !reportData.monthlySupplierExpenses ||
-    !reportData.monthlyBills ||
-    !reportData.monthlySalaries
-  )
-  return <div>No data found</div>;
-
-  // Generate dates for chart/table
-  const getDatesInMonth = (year, month) => {
-    const numDays = new Date(year, month, 0).getDate();
-    const dates = [];
-
-    for (let i = 1; i <= numDays; i++) {
-      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-      dates.push(dateStr);
+  const fetchReport = async () => {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/auth/report/monthly?month=${parseInt(month) + 1}&year=${parseInt(year)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReportData(res.data);
+    } catch (err) {
+      console.error("Report sync failed", err);
+    } finally {
+      setLoading(false);
     }
-
-    return dates;
   };
 
-  const allDates = getDatesInMonth(year, parseInt(month) + 1);
-
-  const incomeData = allDates.map(date => reportData.monthlyIncome[date] || 0);
-  const supplierExpenseData = allDates.map(date => reportData.monthlySupplierExpenses[date] || 0);
-  const billData = allDates.map(date => reportData.monthlyBills[date] || 0);
-  const salaryData = allDates.map(date => reportData.monthlySalaries[date] || 0);
-
-  const totalSupplierExpenses = supplierExpenseData.reduce((a, b) => a + b, 0);
-  const totalBills = billData.reduce((a, b) => a + b, 0);
-  const totalSalaries = salaryData.reduce((a, b) => a + b, 0);
-
-  // ✅ Update summary calculations
-  const otherIncomeData = allDates.map(date => reportData.monthlyOtherIncome[date] || 0);
-  const otherExpenseData = allDates.map(date => reportData.monthlyOtherExpenses[date] || 0);
-
-  const totalOtherIncome = otherIncomeData.reduce((a, b) => a + b, 0);
-  const totalOtherExpenses = otherExpenseData.reduce((a, b) => a + b, 0);
-
-  const totalExpenses =
-    totalSupplierExpenses +
-    totalBills +
-    totalSalaries +
-    totalOtherExpenses;
-
-  const totalIncome = incomeData.reduce((a, b) => a + b, 0) + totalOtherIncome;
-  const netProfit = totalIncome - totalExpenses;
-
+  const processedData = React.useMemo(() => {
+    if (!reportData) return null;
+    const daysInMonth = new Date(year, parseInt(month) + 1, 0).getDate();
+    const allDates = Array.from({ length: daysInMonth }, (_, i) => `${year}-${String(parseInt(month) + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`);
     
+    const incomeData = allDates.map(d => reportData.monthlyIncome[d] || 0);
+    const expenseData = allDates.map(d => (reportData.monthlySupplierExpenses[d] || 0) + (reportData.monthlyBills[d] || 0) + (reportData.monthlySalaries[d] || 0));
+
+    const totalIncome = incomeData.reduce((a, b) => a + b, 0);
+    const totalExpense = expenseData.reduce((a, b) => a + b, 0);
+    const netProfit = totalIncome - totalExpense;
+
+    return { allDates, incomeData, expenseData, totalIncome, totalExpense, netProfit };
+  }, [reportData, month, year]);
+
+  if (loading) return <div className="d-flex justify-content-center align-items-center vh-100"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="spinner-border text-primary" /></div>;
+  if (!reportData || !processedData) return <div className="text-center py-5">No report data found</div>;
+
+  const { allDates, incomeData, expenseData, totalIncome, totalExpense, netProfit } = processedData;
 
   const chartData = {
-    labels: allDates.map(date => date.split("-")[2]),
+    labels: allDates.map(d => d.split("-")[2]),
     datasets: [
       {
-        label: `Income (${symbol})`,
-        backgroundColor: "rgba(75,192,192,0.6)",
-        borderColor: "rgba(75,192,192,1)",
-        borderWidth: 1,
+        label: "Revenue",
+        backgroundColor: "#4f46e5",
+        borderRadius: 8,
         data: incomeData
       },
       {
-        label: "Suppliers",
-        backgroundColor: "rgba(255,99,132,0.6)",
-        borderColor: "rgba(255,99,132,1)",
-        borderWidth: 1,
-        data: supplierExpenseData
-      },
-      {
-        label: `Other Income (${symbol})`,
-        backgroundColor: "rgba(153, 102, 255, 0.6)", // Purple
-        borderColor: "rgba(153, 102, 255, 1)",
-        borderWidth: 1,
-        data: otherIncomeData
-      },
-      {
-        label: "Suppliers",
-        backgroundColor: "rgba(255,99,132,0.6)",
-        borderColor: "rgba(255,99,132,1)",
-        borderWidth: 1,
-        data: supplierExpenseData
-      },
-      {
-        label: "Kitchen Bills",
-        backgroundColor: "rgba(255,206,86,0.6)",
-        borderColor: "rgba(255,206,86,1)",
-        borderWidth: 1,
-        data: billData
-      },
-      {
-        label: "Salaries",
-        backgroundColor: "rgba(54,162,235,0.6)",
-        borderColor: "rgba(54,162,235,1)",
-        borderWidth: 1,
-        data: salaryData
-      },
-      {
-        label: "Other Expenses",
-        backgroundColor: "rgba(255, 159, 64, 0.6)", // Orange
-        borderColor: "rgba(255, 159, 64, 1)",
-        borderWidth: 1,
-        data: otherExpenseData
+        label: "Expenses",
+        backgroundColor: "#e0e7ff",
+        borderRadius: 8,
+        data: expenseData
       }
     ]
   };
 
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: { position: "top" },
-      title: {
-        display: true,
-        text: `Monthly Report - ${new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}`
-      }
-    }
-  };
-
-
   return (
-    <div className="container my-4">
-      <h2 className="text-primary mb-4 fw-bold border-bottom pb-2">
-        Monthly Income & Expense Report
-      </h2>
-
-      {/* Month/Year Picker */}
-      <div className="mb-4 d-flex flex-wrap gap-4 align-items-end">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="report-view-modern">
+      {/* Header & Controls */}
+      <div className="d-flex justify-content-between align-items-end mb-5">
         <div>
-          <label className="form-label fw-semibold">Select Month</label>
-          <select
-            value={month}
-            onChange={(e) => setMonth(parseInt(e.target.value))}
-            className="form-select shadow-sm"
-          >
-            {[...Array(12)].map((_, i) => (
-              <option key={i} value={i}>
-                {new Date(year, i).toLocaleString("default", { month: "long" })}
-              </option>
-            ))}
-          </select>
+          <h1 className="text-hero">Fiscal Analytics</h1>
+          <p className="text-subtitle">High-precision financial monitoring and margin audit</p>
         </div>
-
-        <div>
-          <label className="form-label fw-semibold">Select Year</label>
-          <input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value))}
-            className="form-control shadow-sm"
-            min="2020"
-            max="2030"
-          />
+        <div className="d-flex gap-2 bg-white p-2 rounded-4 shadow-sm border">
+            <select className="premium-select" style={{ border: 'none', backgroundPosition: 'right 0.5rem center', padding: '0 2rem 0 1rem', fontSize: '0.9rem' }} value={month} onChange={(e) => setMonth(e.target.value)}>
+                {Array.from({length: 12}, (_, i) => <option key={i} value={i}>{new Date(0, i).toLocaleString('default', {month: 'long'})}</option>)}
+            </select>
+            <select className="premium-select border-start" style={{ borderTop: 'none', borderBottom: 'none', borderRight: 'none', backgroundPosition: 'right 0.5rem center', padding: '0 2rem 0 1rem', fontSize: '0.9rem', borderRadius: 0 }} value={year} onChange={(e) => setYear(e.target.value)}>
+                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <button className="btn-refresh-premium" style={{ border: 'none', boxShadow: 'none' }} onClick={fetchReport} disabled={loading}>
+                <RefreshCw size={18} className={loading ? "animate-spin-soft" : ""} />
+            </button>
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="mb-5 p-3 border rounded bg-white shadow-sm">
-        <Bar data={chartData} options={options} />
+      {/* Bento Grid Stats */}
+      <div className="bento-grid-report mb-5">
+        <motion.div whileHover={{ y: -5 }} className="bento-card" style={{ background: 'var(--p-indigo-900)', color: 'white', border: 'none' }}>
+            <div className="d-flex justify-content-between">
+                <div className="stat-icon-wrapper" style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}><TrendingUp size={24} /></div>
+                <ArrowUpRight size={20} opacity={0.5} />
+            </div>
+            <div className="mt-4">
+                <p className="tiny-caps text-white opacity-60">Monthly Revenue</p>
+                <h3 className="text-hero text-white mt-1">{symbol}{totalIncome.toLocaleString()}</h3>
+            </div>
+        </motion.div>
+
+        <motion.div whileHover={{ y: -5 }} className="bento-card">
+            <div className="d-flex justify-content-between">
+                <div className="stat-icon-wrapper"><TrendingDown size={24} className="text-danger" /></div>
+                <ArrowDownRight size={20} opacity={0.3} />
+            </div>
+            <div className="mt-4">
+                <p className="tiny-caps">Operational Costs</p>
+                <h3 className="text-hero mt-1" style={{ fontSize: '1.75rem' }}>{symbol}{totalExpense.toLocaleString()}</h3>
+            </div>
+        </motion.div>
+
+        <motion.div whileHover={{ y: -5 }} className="bento-card">
+            <div className="d-flex justify-content-between">
+                <div className="stat-icon-wrapper"><Scale size={24} className="text-indigo" /></div>
+                <div className="badge-modern success">+12.5%</div>
+            </div>
+            <div className="mt-4">
+                <p className="tiny-caps">Net Margin</p>
+                <h3 className="text-hero mt-1" style={{ fontSize: '1.75rem', color: 'var(--p-indigo-600)' }}>{symbol}{netProfit.toLocaleString()}</h3>
+            </div>
+        </motion.div>
       </div>
 
-      {/* Summary Stats */}
-
-<div className="summary-stats my-5">
-  <h4 className="mb-4">📊 Summary - {new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</h4>
-
-  <div className="row g-4">
-    {/* Total Income */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-success border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaMoneyBillWave size={30} className="text-success me-3" />
-          <div>
-            <small className="text-muted">Total Income</small>
-            <h5 className="mb-0 text-success">{symbol}{totalIncome.toFixed(2)}</h5>
-          </div>
+      <div className="row g-4">
+        <div className="col-lg-8">
+            <div className="bento-card h-100">
+                <div className="d-flex align-items-center gap-3 mb-5">
+                    <PieChart size={20} className="text-indigo" />
+                    <h5 className="m-0 fw-800">Revenue Flow Trend</h5>
+                </div>
+                <div style={{ height: '380px' }}>
+                    <Bar 
+                        data={chartData} 
+                        options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: '600' } } },
+                                y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } }
+                            }
+                        }} 
+                    />
+                </div>
+            </div>
+        </div>
+        <div className="col-lg-4">
+            <div className="bento-card h-100">
+                <div className="d-flex align-items-center gap-3 mb-4">
+                    <Calendar size={20} className="text-primary" />
+                    <h5 className="m-0 fw-bold">Daily Ledger</h5>
+                </div>
+                <div className="daily-list-scrollable">
+                    {[...allDates].reverse().map((date, i) => {
+                        const inc = reportData.monthlyIncome[date] || 0;
+                        const exp = (reportData.monthlySupplierExpenses[date] || 0) + (reportData.monthlyBills[date] || 0) + (reportData.monthlySalaries[date] || 0);
+                        if (inc === 0 && exp === 0) return null;
+                        return (
+                            <div key={i} className="daily-item-modern">
+                                <div className="date-meta">
+                                    <span className="day">{new Date(date).getDate()}</span>
+                                    <span className="month-tiny">{new Date(date).toLocaleString('default', { month: 'short' })}</span>
+                                </div>
+                                <div className="value-meta">
+                                    <span className="val-inc">+{symbol}{inc}</span>
+                                    <span className="val-exp">-{symbol}{exp}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
       </div>
-    </div>
 
-    {/* Total Expenses */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-danger border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaChartPie size={30} className="text-danger me-3" />
-          <div>
-            <small className="text-muted">Total Expenses</small>
-            <h5 className="mb-0 text-danger">{symbol}{totalExpenses.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Net Profit */}
-    <div className="col-md-4">
-      <div className={`p-4 rounded shadow-sm border-start border-5 bg-light ${netProfit >= 0 ? 'border-info' : 'border-danger'}`}>
-        <div className="d-flex align-items-center">
-          <FaBalanceScale size={30} className={`${netProfit >= 0 ? 'text-info' : 'text-danger'} me-3`} />
-          <div>
-            <small className="text-muted">Net Profit</small>
-            <h5 className={`mb-0 ${netProfit >= 0 ? 'text-info' : 'text-danger'}`}>
-              {symbol}{netProfit.toFixed(2)}
-            </h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Other Income */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-purple border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaGift size={30} className="text-purple me-3" style={{ color: "#9966ff" }} />
-          <div>
-            <small className="text-muted">Other Income</small>
-            <h5 className="mb-0" style={{ color: "#9966ff" }}>{symbol}{totalOtherIncome.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Other Expenses */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-orange border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaTools size={30} className="text-orange me-3" style={{ color: "#ff9f40" }} />
-          <div>
-            <small className="text-muted">Other Expenses</small>
-            <h5 className="mb-0" style={{ color: "#ff9f40" }}>{symbol}{totalOtherExpenses.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Supplier Expenses */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-dark border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaTruckLoading size={30} className="text-dark me-3" />
-          <div>
-            <small className="text-muted">Supplier Expenses</small>
-            <h5 className="mb-0 text-dark">{symbol}{totalSupplierExpenses.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Utility Bills */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-warning border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaFileInvoiceDollar size={30} className="text-warning me-3" />
-          <div>
-            <small className="text-muted">Kitchen Bills</small>
-            <h5 className="mb-0 text-warning">{symbol}{totalBills.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Salaries */}
-    <div className="col-md-4">
-      <div className="p-4 rounded shadow-sm border-start border-primary border-5 bg-light">
-        <div className="d-flex align-items-center">
-          <FaUserTie size={30} className="text-primary me-3" />
-          <div>
-            <small className="text-muted">Salaries</small>
-            <h5 className="mb-0 text-primary">{symbol}{totalSalaries.toFixed(2)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-      {/* Daily Breakdown Table */}
-      <h4 className="mt-4 mb-3">📅 Daily Breakdown</h4>
-      <div className="table-responsive shadow-sm border rounded">
-        <table className="table table-bordered table-hover align-middle mb-0">
-          <thead className="table-light">
-            <tr>
-              <th>Date</th>
-              <th>Income ({symbol})</th>
-              <th>Other Income ({symbol})</th> {/* ✅ NEW */}
-              <th>Suppliers ({symbol})</th>
-              <th>Bills ({symbol})</th>
-              <th>Salaries ({symbol})</th>
-              <th>Other Expenses ({symbol})</th> {/* ✅ NEW */}
-              <th>Total Exp ({symbol})</th>
-              <th>Net ({symbol})</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allDates.map((date, idx) => {
-              const income = incomeData[idx].toFixed(2);
-              const otherIncome = otherIncomeData[idx].toFixed(2); // ✅ NEW
-              const supplier = supplierExpenseData[idx].toFixed(2);
-              const bill = billData[idx].toFixed(2);
-              const salary = salaryData[idx].toFixed(2);
-              const otherExpense = otherExpenseData[idx].toFixed(2); // ✅ NEW
-
-              const total = (
-                parseFloat(supplier) +
-                parseFloat(bill) +
-                parseFloat(salary) +
-                parseFloat(otherExpense) // ✅ NEW
-              ).toFixed(2);
-
-              const net = (
-                parseFloat(income) +
-                parseFloat(otherIncome) - // ✅ NEW
-                parseFloat(total)
-              ).toFixed(2);
-
-              return (
-                <tr key={idx}>
-                  <td>{date}</td>
-                  <td>{symbol}{income}</td>
-                  <td>{symbol}{otherIncome}</td> {/* ✅ NEW */}
-                  <td>{symbol}{supplier}</td>
-                  <td>{symbol}{bill}</td>
-                  <td>{symbol}{salary}</td>
-                  <td>{symbol}{otherExpense}</td> {/* ✅ NEW */}
-                  <td>{symbol}{total}</td>
-                  <td className={net >= 0 ? "text-success" : "text-danger"}>
-                    {symbol}{net}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <style>{`
+        .bento-grid-report { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+        .stat-bento { border-radius: 32px !important; }
+        .stat-bento.primary { background: var(--primary); color: white; }
+        .tiny-caps { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; }
+        .badge-modern { padding: 4px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; }
+        .badge-modern.success { background: #dcfce7; color: #166534; }
+        .daily-list-scrollable { max-height: 400px; overflow-y: auto; padding-right: 10px; }
+        .daily-item-modern { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border-subtle); }
+        .date-meta { display: flex; flex-direction: column; align-items: center; background: #f8fafc; padding: 8px; border-radius: 12px; min-width: 50px; }
+        .day { font-size: 1.1rem; font-weight: 800; line-height: 1; }
+        .month-tiny { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+        .value-meta { display: flex; flex-direction: column; align-items: flex-end; }
+        .val-inc { font-size: 0.9rem; font-weight: 800; color: var(--success); }
+        .val-exp { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+      `}</style>
+    </motion.div>
   );
 };
 

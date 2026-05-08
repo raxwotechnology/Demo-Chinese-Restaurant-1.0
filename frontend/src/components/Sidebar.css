@@ -25,7 +25,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: #343a40;
+  background-color: #d1d6da;
   border-bottom: 1px solid #495057;
 }
 
@@ -54,30 +54,32 @@
 }
 
 .sidebar-menu li a {
-  color: #fff;
+  color: #ffffff19;
   text-decoration: none;
   display: block;
 }
 
 .sidebar-menu li:hover {
-  background-color: #343a40;
+  background-color: #d1d6da;
 }
 
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #f8f9fa;
+  background-color: transparent;
 }
 
 .top-navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
-  border-bottom: 1px solid #dee2e6;
+  background: transparent;
+  border-bottom: 1px solid var(--glass-border, #dee2e62a);
   padding: 0.75rem 1rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  /* Sit above .page-content (also position:relative) so user dropdown is not painted under the main column */
+  position: relative;
+  z-index: 1030;
 }
 
 .navbar-left,
@@ -117,7 +119,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  color: #fff;
+  color: #d1d6da;
   text-decoration: none;
   font-size: 0.95rem;
 }
@@ -147,13 +149,13 @@
 }
 
 .menu-link:hover {
-  background-color: #343a40;
-  color: #fff;
+  background-color: #d1d6da;
+  color: #d1d6da;
 }
 
 .menu-link.active {
   background-color: #495057;
-  color: #fff;
+  color: #d1d6da;
 }
 
 .sidebar.collapsed .menu-label {
@@ -177,7 +179,9 @@
   font-size: 1.3rem;
 }
 
-.dropdown-menu {
+/* Legacy / generic menus — keep out of header account dropdown (see .navbar-right .user-dropdown) */
+.notification-center .dropdown-menu,
+.sidebar-header .dropdown-menu {
   position: absolute;
   right: 0;
   top: 100%;
@@ -218,7 +222,8 @@
   color: #495057;
 }
 
-.dropdown-menu {
+.notification-center .dropdown-menu,
+.sidebar-header .dropdown-menu {
   position: absolute;
   top: 100%;
   right: 0;
@@ -253,6 +258,7 @@
 
 .user-dropdown {
   position: relative;
+  z-index: 1;
 }
 
 .user-toggle {
@@ -263,20 +269,33 @@
   color: #495057;
 }
 
-.dropdown-menu.show {
-  display: block;
+button.user-toggle {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
 }
 
-.dropdown-menu {
+/* Scoped to header account menu only — avoids fighting Bootstrap .dropdown-menu elsewhere */
+.navbar-right .user-dropdown .dropdown-menu.show {
+  display: block !important;
+}
+
+.navbar-right .user-dropdown .dropdown-menu {
   display: none;
   position: absolute;
-  top: 110%;
+  top: calc(100% + 6px);
   right: 0;
+  left: auto;
   background: white;
-  border-radius: 5px;
-  min-width: 150px;
+  border-radius: 10px;
+  min-width: 168px;
+  padding: 0.35rem 0;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  z-index: 999;
+  z-index: 1040;
+  overflow: visible;
 }
 
 .dropdown-item {
@@ -354,6 +373,11 @@
 }
 
 /* /////////////////////////////////////////////////////////////////// */
+
+.notification-center .notification-bell-btn {
+  color: #495057;
+  cursor: pointer;
+}
 
 .notification-center .dropdown-menu {
   max-height: 400px;

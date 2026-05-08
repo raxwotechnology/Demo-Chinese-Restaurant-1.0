@@ -39,13 +39,13 @@ const NotificationCenter = () => {
   };
 
   return (
-    <div className="position-relative">
+    <div className="position-relative notification-center">
       {/* Bell Icon */}
       <button
         onClick={toggleDropdown}
+        className="notification-bell-btn"
         style={{
           fontSize: "1.2rem",
-          color: "#495057",
           background: "none",
           border: "none"
         }}

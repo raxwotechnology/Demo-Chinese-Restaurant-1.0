@@ -1,3 +1,4 @@
+import API_BASE_URL from "../apiConfig";
 // src/components/CashierDashboard.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
@@ -14,7 +15,7 @@ const CashierDashboard = () => {
       const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
       try {
-        const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/orders", {
+        const res = await axios.get(`${API_BASE_URL}/api/auth/orders`, {
           params: {
             startDate: startOfDay.toISOString(),
             endDate: endOfDay.toISOString()
@@ -66,15 +67,14 @@ const CashierDashboard = () => {
                   <p className="mb-1">
                     <strong>Status:</strong>{" "}
                     <span
-                      className={`badge ${
-                        order.status === "Completed"
-                          ? "bg-secondary"
-                          : order.status === "Ready"
+                      className={`badge ${order.status === "Completed"
+                        ? "bg-secondary"
+                        : order.status === "Ready"
                           ? "bg-success"
                           : order.status === "Processing"
-                          ? "bg-primary"
-                          : "bg-warning text-dark"
-                      }`}
+                            ? "bg-primary"
+                            : "bg-warning text-dark"
+                        }`}
                     >
                       {order.status}
                     </span>

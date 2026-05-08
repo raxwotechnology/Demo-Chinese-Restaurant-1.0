@@ -1,3 +1,4 @@
+import API_BASE_URL from "../apiConfig";
 // src/components/CashierSummary.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
@@ -48,7 +49,7 @@ const CashierSummary = () => {
       });
 
       const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/orders?${params.toString()}`,
+        `${API_BASE_URL}/api/auth/orders?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -66,11 +67,11 @@ const CashierSummary = () => {
       setLoading(false);
     }
   };
-  
+
   const fetchOtherIncomes = async () => {
     try {
       const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/income/other/by-date?date=${dateFilter}`,
+        `${API_BASE_URL}/api/auth/income/other/by-date?date=${dateFilter}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setOtherIncomes(res.data);
@@ -86,7 +87,7 @@ const CashierSummary = () => {
   const fetchOtherExpenses = async () => {
     try {
       const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/expense/other/by-date?date=${dateFilter}`,
+        `${API_BASE_URL}/api/auth/expense/other/by-date?date=${dateFilter}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setOtherExpenses(res.data);
@@ -112,7 +113,7 @@ const CashierSummary = () => {
       const yesterdayStr = `${yyyy}-${mm}-${dd}`;
 
       const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/cashier/shift-summary/${yesterdayStr}`,
+        `${API_BASE_URL}/api/auth/cashier/shift-summary/${yesterdayStr}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -139,7 +140,7 @@ const CashierSummary = () => {
   const checkExistingSummary = async () => {
     try {
       const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/cashier/shift-summary/${dateFilter}`,
+        `${API_BASE_URL}/api/auth/cashier/shift-summary/${dateFilter}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -271,7 +272,7 @@ const CashierSummary = () => {
       };
 
       const res = await axios.post(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/cashier/shift-summary/submitshift",
+        `${API_BASE_URL}/api/auth/cashier/shift-summary/submitshift`,
         payload,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -357,7 +358,7 @@ const CashierSummary = () => {
                 </button>
               )}
             </div>
-            
+
           </div>
           <div className="col-md-4">
             {startingCashLocked && (
@@ -427,44 +428,44 @@ const CashierSummary = () => {
         <div className="card-body">
           {!isReadOnly && (
             <>
-            <div className="row g-2">
-              <div className="col-md-5">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Description (e.g., 'Tip from Table 3')"
-                  value={cashInDesc}
-                  onChange={(e) => setCashInDesc(e.target.value)}
-                  disabled={isReadOnly}
-                />
-              </div>
-              <div className="col-md-5">
-                <div className="input-group">
-                  <span className="input-group-text">{symbol}</span>
+              <div className="row g-2">
+                <div className="col-md-5">
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
                     className="form-control"
-                    placeholder="Amount"
-                    value={cashInAmount}
-                    onChange={(e) => setCashInAmount(e.target.value)}
+                    placeholder="Description (e.g., 'Tip from Table 3')"
+                    value={cashInDesc}
+                    onChange={(e) => setCashInDesc(e.target.value)}
                     disabled={isReadOnly}
                   />
                 </div>
+                <div className="col-md-5">
+                  <div className="input-group">
+                    <span className="input-group-text">{symbol}</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      placeholder="Amount"
+                      value={cashInAmount}
+                      onChange={(e) => setCashInAmount(e.target.value)}
+                      disabled={isReadOnly}
+                    />
+                  </div>
+                </div>
+                <div className="col-md-2">
+                  <button
+                    className="btn btn-outline-primary w-100"
+                    onClick={addCashIn}
+                    disabled={isReadOnly || !cashInDesc.trim() || !cashInAmount || parseFloat(cashInAmount) <= 0}
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
-              <div className="col-md-2">
-                <button
-                  className="btn btn-outline-primary w-100"
-                  onClick={addCashIn}
-                  disabled={isReadOnly || !cashInDesc.trim() || !cashInAmount || parseFloat(cashInAmount) <= 0}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
             </>
           )}
-          
+
           {cashIns.length > 0 && (
             <ul className="list-group mt-3">
               {cashIns.map((entry, idx) => (
@@ -574,14 +575,14 @@ const CashierSummary = () => {
           },
           {
             label: submittedSummary ? submittedSummary.totalCashFromOrders === totalCashFromOrders ?
-              "Cash Received (After Change)" : 
+              "Cash Received (After Change)" :
               (
                 <>
                   Submitted Order Cash {symbol}{formatCurrency(submittedSummary.totalCashFromOrders)}
                   <br />
                   Total Order Cash
                 </>
-              ) :  
+              ) :
               "Cash Received (After Change)",
             value: `${symbol}${formatCurrency(totalCashFromOrders)}`,
             color: "success",
@@ -622,7 +623,7 @@ const CashierSummary = () => {
       <div className="card shadow-sm">
         <div className="card-header">
           <h6 className="mb-0">
-             Cash Received Orders ({orders.length})
+            Cash Received Orders ({orders.length})
           </h6>
         </div>
         <div className="card-body">
@@ -655,10 +656,9 @@ const CashierSummary = () => {
                         <td className="text-danger">-{symbol}{formatCurrency(changeDue)}</td>
                         <td className="fw-bold text-success">{symbol}{formatCurrency(netCash)}</td>
                         <td>
-                          <span className={`badge bg-${
-                            order.status === "completed" ? "success" :
+                          <span className={`badge bg-${order.status === "completed" ? "success" :
                             order.status === "pending" ? "warning" : "secondary"
-                          }`}>
+                            }`}>
                             {order.status}
                           </span>
                         </td>

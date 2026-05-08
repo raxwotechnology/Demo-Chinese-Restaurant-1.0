@@ -1,3 +1,4 @@
+import API_BASE_URL from "../apiConfig";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -14,7 +15,7 @@ const ReceiptView = () => {
     const fetchOrder = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`https://demo-chinese-restaurant-1-0.onrender.com/api/auth/order/${orderId}`, {
+        const res = await axios.get(`${API_BASE_URL}/api/auth/order/${orderId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -43,7 +44,7 @@ const ReceiptView = () => {
 
   return (
     <div style={{ maxWidth: "400px", margin: "auto", padding: "20px", fontFamily: "monospace" }}>
-      <h3 className="text-center">RMS Restaurant</h3>
+      <h3 className="text-center">Royal Orient</h3>
       <p><strong>Date:</strong> {new Date(order.date).toLocaleString()}</p>
       <p><strong>Customer:</strong> {order.customerName}</p>
       <p><strong>Phone:</strong> {order.customerPhone}</p>

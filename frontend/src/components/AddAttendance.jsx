@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from "react";
+import API_BASE_URL from "../apiConfig";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Select from "react-select";
+import { FaUserCircle, FaCalendarAlt, FaStopwatch, FaSignInAlt, FaPause, FaPlay, FaSignOutAlt, FaIdCard, FaHistory } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "../styles/PremiumUI.css";
 
-const AttendancePage = () => {
+const AddAttendance = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [punches, setPunches] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load employees on mount
   useEffect(() => {
     fetchEmployees();
   }, []);
@@ -17,253 +20,205 @@ const AttendancePage = () => {
   const fetchEmployees = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/employees", {
+      const res = await axios.get(`${API_BASE_URL}/api/auth/employees`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setEmployees(res.data);
+      setEmployees(res.data || []);
     } catch (err) {
-      console.error("Failed to load employees:", err.message);
-      toast.error("Failed to load employees");
+      toast.error("Failed to sync personnel directory");
     }
   };
 
-  // Format options for react-select
-  const employeeOptions = employees.map(emp => ({
-    value: emp._id,
-    label: `${emp.name} (${emp.id})`
-  }));
-
-  // Fetch daily punches
   const fetchPunches = async (empId) => {
     setLoading(true);
     try {
       const today = new Date();
-      const month = today.getMonth() + 1;
-      const year = today.getFullYear();
-
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/attendance/summary",
-        {
-          params: { _id: empId, month, year },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
+      const res = await axios.get(`${API_BASE_URL}/api/auth/attendance/summary`, {
+        params: { _id: empId, month: today.getMonth() + 1, year: today.getFullYear() },
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setPunches(res.data.daily || []);
     } catch (err) {
-      console.error("Failed to load punches:", err.response?.data || err.message);
-      toast.error("Failed to load punch history");
-      setPunches([]);
+      toast.error("Failed to load time logs");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle employee change
-  const handleEmployeeChange = (selectedOption) => {
-    if (!selectedOption) {
-      setSelectedEmp(null);
-      setPunches([]);
-      return;
-    }
-
-    setSelectedEmp(selectedOption);
-    fetchPunches(selectedOption.value);
+  const handleEmployeeChange = (opt) => {
+    setSelectedEmp(opt);
+    if (opt) fetchPunches(opt.value);
+    else setPunches([]);
   };
 
-  // Record punch time
   const recordPunch = async (type) => {
-    if (!selectedEmp) return;
-
+    if (!selectedEmp) {
+        toast.warning("Please identify yourself first");
+        return;
+    }
     try {
       const token = localStorage.getItem("token");
-      const punchTime = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      const payload = {
+      await axios.post(`${API_BASE_URL}/api/auth/attendance/punch`, {
         employeeId: selectedEmp.value,
         punchType: type
-      };
-
-      const res = await axios.post(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/attendance/punch",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      toast.success(`${selectedEmp.label} - ${type} at ${punchTime}`);
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(`Action: ${type} Recorded`);
       fetchPunches(selectedEmp.value);
     } catch (err) {
-      console.error("Failed to record punch:", err.response?.data || err.message);
-      toast.error(`Failed to record ${type}`);
+      toast.error("Punch transaction failed");
     }
   };
 
-  // Determine which buttons can be shown
   const canPunch = (type) => {
-    if (!punches.length) {
-      // First punch must be Clock In
-      return type === "In";
-    }
-
-    const latestDay = punches[punches.length - 1];
-    const lastPunches = latestDay?.punches || [];
-    const lastPunch = lastPunches[lastPunches.length - 1];
-
+    if (!punches.length) return type === "In";
+    const lastDay = punches[punches.length - 1];
+    const lastPunch = (lastDay?.punches || [])[(lastDay?.punches || []).length - 1];
+    if (!lastPunch) return type === "In";
     switch (type) {
-      case "In":
-        // Only show if no punches or last was "Out"
-        return !lastPunch || lastPunch?.type === "Out";;
-
-      case "Break In":
-        // Show if last punch was "In" and Break In hasn't been pressed yet
-        return lastPunch?.type === "In";
-
-      case "Break Out":
-        // Show only after Break In is pressed
-        return lastPunch?.type === "Break In";
-
-      case "Out":
-        // Show only after Break Out is pressed
-        return lastPunch?.type === "Break Out";
-
-      default:
-        return false;
+      case "In": return lastPunch.type === "Out";
+      case "Break In": return lastPunch.type === "In";
+      case "Break Out": return lastPunch.type === "Break In";
+      case "Out": return lastPunch.type === "In" || lastPunch.type === "Break Out";
+      default: return false;
     }
+  };
+
+  const selectStyles = {
+    control: (base) => ({
+      ...base,
+      background: 'rgba(255,255,255,0.05)',
+      borderColor: 'rgba(255,255,255,0.1)',
+      borderRadius: '12px',
+      padding: '8px',
+      color: '#fff'
+    }),
+    singleValue: (base) => ({ ...base, color: '#fff' }),
+    menu: (base) => ({ ...base, background: '#023047', border: '1px solid var(--orient-gold)' }),
+    option: (base, state) => ({
+      ...base,
+      background: state.isFocused ? 'rgba(255,183,3,0.1)' : 'transparent',
+      color: '#fff'
+    })
   };
 
   return (
-    <div className="container mt-4">
-      <h2 className="mb-4 fw-bold text-primary border-bottom pb-2">Employee Time Punch</h2>
-
-      {/* Employee Selection */}
-      <div className="mb-4">
-        <label>Select Employee</label>
-        <Select
-          options={employeeOptions}
-          value={selectedEmp}
-          onChange={handleEmployeeChange}
-          placeholder="Search or select..."
-          isClearable
-          isSearchable
-        />
+    <div className="attendance-entry-container animate-fade-in">
+      <ToastContainer theme="dark" />
+      
+      <div className="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-4">
+        <div>
+          <h1 className="premium-title mb-1">Timekeeping Terminal</h1>
+          <p className="premium-subtitle mb-0">Record your shift activity and manage work hours</p>
+        </div>
       </div>
 
-      {/* Punch Buttons */}
-      {selectedEmp && (
-        <div className="text-center mb-4">
-          {canPunch("In") && (
-            <button
-              className="btn btn-success fs-5 px-4 py-2 me-2"
-              onClick={() => recordPunch("In")}
-            >
-              🔹 Clock In
-            </button>
-          )}
+      <div className="row g-5">
+        <div className="col-xl-5">
+            <div className="premium-card p-4">
+                <div className="text-center mb-4">
+                    <div className="bg-gold-glow d-inline-block p-4 rounded-circle mb-3"><FaStopwatch className="text-gold" size={40} /></div>
+                    <h3 className="text-white h5">Identify Personnel</h3>
+                </div>
 
-          {canPunch("Break In") && (
-            <button
-              className="btn btn-warning fs-5 px-4 py-2 me-2"
-              onClick={() => recordPunch("Break In")}
-            >
-              ⏸ Break In
-            </button>
-          )}
+                <div className="mb-5">
+                    <Select 
+                        styles={selectStyles}
+                        options={employees.map(e => ({ value: e._id, label: `${e.name} (${e.role})` }))}
+                        value={selectedEmp}
+                        onChange={handleEmployeeChange}
+                        placeholder="Select your name..."
+                    />
+                </div>
 
-          {canPunch("Break Out") && (
-            <button
-              className="btn btn-primary fs-5 px-4 py-2 me-2"
-              onClick={() => recordPunch("Break Out")}
-            >
-              ▶️ Break Out
-            </button>
-          )}
-
-          {canPunch("Out") && (
-            <button
-              className="btn btn-danger fs-5 px-4 py-2"
-              onClick={() => recordPunch("Out")}
-            >
-              🔚 Clock Out
-            </button>
-          )}
+                {selectedEmp && (
+                    <div className="d-flex flex-column gap-3 animate-slide-up">
+                        <div className="row g-3">
+                            <div className="col-6">
+                                <button className="btn-premium btn-punch btn-punch-in w-100 py-3" onClick={() => recordPunch('In')} disabled={!canPunch('In')}>
+                                    <FaSignInAlt className="me-2" /> Shift In
+                                </button>
+                            </div>
+                            <div className="col-6">
+                                <button className="btn-premium btn-punch btn-punch-out w-100 py-3" onClick={() => recordPunch('Out')} disabled={!canPunch('Out')}>
+                                    <FaSignOutAlt className="me-2" /> Shift Out
+                                </button>
+                            </div>
+                            <div className="col-6">
+                                <button className="btn-premium btn-punch btn-punch-break w-100 py-3" onClick={() => recordPunch('Break In')} disabled={!canPunch('Break In')}>
+                                    <FaPause className="me-2" /> Break Start
+                                </button>
+                            </div>
+                            <div className="col-6">
+                                <button className="btn-premium btn-punch btn-punch-break w-100 py-3" onClick={() => recordPunch('Break Out')} disabled={!canPunch('Break Out')}>
+                                    <FaPlay className="me-2" /> Break End
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-      )}
 
-      {/* Daily Punch Table */}
-      {selectedEmp && (
-        <div>
-          <h4>Daily Punch Log</h4>
-          {loading ? (
-            <p>Loading...</p>
-          ) : punches.length === 0 ? (
-            <p>No punches recorded yet.</p>
-          ) : (
-            <table className="table table-bordered align-middle">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>In</th>
-                  <th>Break In</th>
-                  <th>Break Out</th>
-                  <th>Out</th>
-                  <th>Total Hours</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {punches.map((day, idx) => {
-                  const punchesMap = {};
-                  day.punches.forEach(p => {
-                    punchesMap[p.type] = p.time;
-                  });
-
-                  const totalHours = parseFloat(day.totalHours || 0);
-                  let status = "On Time";
-                  if (totalHours > 8) status = "Overtime";
-                  else if (totalHours < 8) status = "Undertime";
-
-                  return (
-                    <tr key={idx}>
-                      <td>{new Date(day.date).toLocaleDateString()}</td>
-                      <td>{punchesMap["In"] || "-"}</td>
-                      <td>{punchesMap["Break In"] || "-"}</td>
-                      <td>{punchesMap["Break Out"] || "-"}</td>
-                      <td>{punchesMap["Out"] || "-"}</td>
-                      <td>{totalHours.toFixed(2)}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            status === "Overtime"
-                              ? "bg-success text-white"
-                              : status === "Undertime"
-                              ? "bg-warning text-dark"
-                              : "bg-secondary"
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+        <div className="col-xl-7">
+            <div className="orient-card p-0 overflow-hidden">
+                <div className="p-4 border-bottom border-white-05 d-flex justify-content-between align-items-center">
+                    <h5 className="text-white mb-0"><FaHistory className="me-2 text-gold" /> Personal Punch History</h5>
+                </div>
+                <div className="premium-table-container">
+                    <table className="premium-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>First Punch</th>
+                                <th>Last Action</th>
+                                <th>Active Hours</th>
+                                <th className="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan="5" className="text-center py-5"><div className="spinner-border text-gold"></div></td></tr>
+                            ) : punches.length === 0 ? (
+                                <tr><td colSpan="5" className="text-center py-5 text-muted">Select personnel to view recent logs.</td></tr>
+                            ) : punches.slice(0, 10).reverse().map((day, i) => (
+                                <tr key={i}>
+                                    <td><div className="text-white small fw-bold">{new Date(day.date).toLocaleDateString()}</div></td>
+                                    <td><div className="small text-white opacity-70">{day.punches[0]?.time || '--:--'}</div></td>
+                                    <td><div className="small text-gold">{(day.punches[day.punches.length - 1]?.type)} @ {day.punches[day.punches.length - 1]?.time}</div></td>
+                                    <td><div className="text-white fw-bold">{parseFloat(day.totalHours || 0).toFixed(1)} hrs</div></td>
+                                    <td className="text-center">
+                                        <div className={`badge-premium ${parseFloat(day.totalHours) >= 8 ? 'badge-primary' : 'badge-success'}`}>
+                                            {parseFloat(day.totalHours) >= 8 ? 'Full Shift' : 'Short Shift'}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-      )}
+      </div>
 
-      <ToastContainer />
+      <style>{`
+        .bg-gold-glow { background: rgba(255, 183, 3, 0.1); }
+        .border-white-05 { border-color: rgba(255,255,255,0.05) !important; }
+        .btn-punch { 
+            border-radius: 15px; 
+            font-weight: 800; 
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        .btn-punch-in { background: linear-gradient(135deg, #00FF7F, #00994d); color: #fff; }
+        .btn-punch-out { background: linear-gradient(135deg, #FF4B2B, #FF416C); color: #fff; }
+        .btn-punch-break { background: linear-gradient(135deg, #FFB703, #fb8500); color: #fff; }
+        .btn-punch:disabled { opacity: 0.2; transform: none !important; }
+      `}</style>
     </div>
   );
 };
 
-export default AttendancePage;
+export default AddAttendance;

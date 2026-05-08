@@ -1,393 +1,225 @@
-// src/components/OtherIncome.jsx
+import API_BASE_URL from "../apiConfig";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { FaCoins, FaHistory, FaPlus, FaSave, FaTrash, FaEdit, FaCreditCard, FaMoneyBillWave, FaDonate, FaDatabase, FaChevronRight } from "react-icons/fa";
+import "../styles/PremiumUI.css";
 
 const OtherIncome = () => {
   const [incomes, setIncomes] = useState([]);
-  const [newIncome, setNewIncome] = useState({
+  const [formData, setFormData] = useState({
     source: "Tips",
     amount: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
     paymentMethod: "Cash"
   });
-
-  const [editingIncome, setEditingIncome] = useState(null);
-  const [editData, setEditData] = useState({ ...newIncome });
+  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Load all incomes on mount
+  const symbol = localStorage.getItem("currencySymbol") || "$";
+
   useEffect(() => {
     fetchIncomes();
   }, []);
 
   const fetchIncomes = async () => {
+    setLoading(true);
     const token = localStorage.getItem("token");
-
     try {
-      const res = await axios.get("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/income/other", {
+      const res = await axios.get(`${API_BASE_URL}/api/auth/income/other`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      setIncomes(res.data);
+      setIncomes(res.data || []);
     } catch (err) {
-      console.error("Failed to load incomes:", err.message);
-      toast.error("Failed to load other income records");
+      toast.error("Miscellaneous revenue sync failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle form input change
-  const handleChange = (e) =>
-    setNewIncome({ ...newIncome, [e.target.name]: e.target.value });
-
-  // Submit new income
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const { source, amount, date } = newIncome;
-
-    if (!source || !amount || !date) {
-      alert("Source, Amount, and Date are required");
+    if (!formData.amount || !formData.date) {
+      toast.error("Financial parameters missing");
       return;
     }
-
+    setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.post(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/income/other",
-        newIncome,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      setIncomes([res.data, ...incomes]);
-      setNewIncome({
-        source: "Tips",
-        amount: "",
-        description: "",
-        date: new Date().toISOString().split("T")[0],
-        paymentMethod: "Cash"
-      });
-
-      toast.success("Income added successfully!");
-    } catch (err) {
-      console.error("Add failed:", err.response?.data || err.message);
-      toast.error("Failed to add income");
-    }
-  };
-
-  // Get currency from localStorage
-  const symbol = localStorage.getItem("currencySymbol") || "$";
-
-  // Open edit modal
-  const openEditModal = (income) => {
-    setEditingIncome(income._id);
-    setEditData({
-      source: income.source,
-      amount: income.amount,
-      description: income.description,
-      date: new Date(income.date).toISOString().split("T")[0],
-      paymentMethod: income.paymentMethod || "Cash"
-    });
-  };
-
-  // Handle edit input change
-  const handleEditChange = (e) =>
-    setEditData({ ...editData, [e.target.name]: e.target.value });
-
-  // Save updated income
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-
-    const { source, amount, date } = editData;
-
-    if (!source || !amount || !date) {
-      alert("All fields are required");
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.put(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/income/other/${editingIncome}`,
-        editData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setIncomes(incomes.map((i) => (i._id === editingIncome ? res.data : i)));
-      setEditingIncome(null);
-      toast.success("Income updated!");
-    } catch (err) {
-      console.error("Update failed:", err.response?.data || err.message);
-      toast.error("Failed to update income");
-    }
-  };
-
-  // Delete an income
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this income record?");
-    if (!confirmDelete) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`https://demo-chinese-restaurant-1-0.onrender.com/api/auth/income/other/${id}`, {
+      const url = editingId 
+        ? `${API_BASE_URL}/api/auth/income/other/${editingId}`
+        : `${API_BASE_URL}/api/auth/income/other`;
+      
+      await axios[editingId ? 'put' : 'post'](url, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      setIncomes(incomes.filter((income) => income._id !== id));
-      toast.success("Income record deleted");
+      
+      toast.success(editingId ? "Ledger updated" : "Revenue logged successfully");
+      setFormData({ source: "Tips", amount: "", description: "", date: new Date().toISOString().split("T")[0], paymentMethod: "Cash" });
+      setEditingId(null);
+      fetchIncomes();
     } catch (err) {
-      console.error("Delete failed:", err.response?.data || err.message);
-      toast.error("Failed to delete income record");
+      toast.error("Transaction failed");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Purge this revenue record?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_BASE_URL}/api/auth/income/other/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIncomes(incomes.filter(i => i._id !== id));
+      toast.success("Record purged");
+    } catch (err) {
+      toast.error("Operation failed");
+    }
+  };
+
+  if (loading && incomes.length === 0) return (
+    <div className="d-flex justify-content-center align-items-center vh-100 bg-white">
+        <div className="text-center">
+            <div className="spinner-border text-primary mb-3"></div>
+            <div className="fw-900 text-main">Syncing Revenue Cloud...</div>
+        </div>
+    </div>
+  );
+
   return (
-    <div className="container py-4">
-      <h2 className="mb-4 fw-bold text-success border-bottom pb-2">Other Income</h2>
-
-      {/* Add Income Form */}
-      <form onSubmit={handleSubmit} className="p-4 bg-white border rounded shadow-sm mb-5">
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label fw-semibold">Income Source</label>
-            <select
-              name="source"
-              value={newIncome.source}
-              onChange={handleChange}
-              className="form-select"
-            >
-              <option>Tips</option>
-              <option>Event Rental</option>
-              <option>Merchandise</option>
-              <option>Delivery Fee</option>
-              <option>Donations</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div className="col-md-6">
-            <label className="form-label fw-semibold">Amount ({symbol})</label>
-            <input
-              type="number"
-              name="amount"
-              value={newIncome.amount}
-              onChange={handleChange}
-              step="0.01"
-              placeholder="e.g., 150"
-              className="form-control"
-              required
-            />
-          </div>
-          <div className="col-md-6">
-            <label className="form-label fw-semibold">Payment Method</label>
-            <select
-              name="paymentMethod"
-              value={newIncome.paymentMethod}
-              onChange={handleChange}
-              className="form-select"
-            >
-              <option value="Cash">Cash</option>
-              <option value="Credit Card">Credit Card</option>
-              <option value="Debit Card">Debit Card</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Cheque">Cheque</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div className="col-md-6">
-            <label className="form-label fw-semibold">Date</label>
-            <input
-              type="date"
-              name="date"
-              value={newIncome.date}
-              onChange={handleChange}
-              className="form-control"
-              required
-            />
-          </div>
-          <div className="col-12 mt-3">
-            <label className="form-label fw-semibold">Description</label>
-            <textarea
-              name="description"
-              value={newIncome.description}
-              onChange={handleChange}
-              rows="2"
-              className="form-control"
-            />
-          </div>
-          <div className="col-12 mt-3">
-            <button type="submit" className="btn btn-success w-100 py-2 fs-5">
-              + Add Income
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Edit Modal */}
-      {editingIncome && (
-        <div
-          className="modal fade show d-block"
-          tabIndex="-1"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content rounded shadow">
-              <div className="modal-header bg-success text-white">
-                <h5 className="modal-title">Edit Income</h5>
-                <button
-                  type="button"
-                  className="btn-close btn-close-white"
-                  onClick={() => setEditingIncome(null)}
-                />
-              </div>
-              <div className="modal-body">
-                <form onSubmit={handleUpdate}>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Income Source</label>
-                    <select
-                      name="source"
-                      value={editData.source}
-                      onChange={handleEditChange}
-                      className="form-select"
-                    >
-                      <option>Tips</option>
-                      <option>Event Rental</option>
-                      <option>Merchandise</option>
-                      <option>Delivery Fee</option>
-                      <option>Donations</option>
-                      <option>Other</option>
-                    </select>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Amount ({symbol})</label>
-                    <input
-                      type="number"
-                      name="amount"
-                      value={editData.amount}
-                      onChange={handleEditChange}
-                      step="0.01"
-                      className="form-control"
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Payment Method</label>
-                    <select
-                      name="paymentMethod"
-                      value={editData.paymentMethod}
-                      onChange={handleEditChange}
-                      className="form-select"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Credit Card">Credit Card</option>
-                      <option value="Debit Card">Debit Card</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Date</label>
-                    <input
-                      type="date"
-                      name="date"
-                      value={editData.date.split("T")[0]}
-                      onChange={handleEditChange}
-                      className="form-control"
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Description</label>
-                    <textarea
-                      name="description"
-                      value={editData.description}
-                      onChange={handleEditChange}
-                      rows="2"
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="d-flex gap-2">
-                    <button type="submit" className="btn btn-success w-100">
-                      Save Changes
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-danger"
-                      onClick={() => handleDelete(editingIncome)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Incomes Table */}
-      <div className="mt-4">
-        <h4 className="mb-3 text-secondary">💰 Recent Income Records</h4>
-        <div className="table-responsive shadow-sm rounded border">
-          <table className="table table-bordered table-striped align-middle mb-0">
-            <thead className="table-dark">
-              <tr>
-                <th>Date</th>
-                <th>Source</th>
-                <th>Amount</th>
-                <th>Payment Method</th>
-                <th>Description</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incomes.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center text-muted py-4">
-                    No income records found
-                  </td>
-                </tr>
-              ) : (
-                incomes.map(income => (
-                  <tr key={income._id}>
-                    <td>{new Date(income.date).toLocaleDateString()}</td>
-                    <td>{income.source}</td>
-                    <td>{symbol}{income.amount.toFixed(2)}</td>
-                    <td>{income.paymentMethod || "Cash"}</td>
-                    <td>{income.description || "-"}</td>
-                    <td className="text-center">
-                      <button
-                        className="btn btn-sm btn-success me-2"
-                        onClick={() => openEditModal(income)}
-                        title="Edit Income"
-                      >
-                          ✏️ Edit
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(income._id)}
-                        title="Delete Income"
-                      >
-                        🗑️ Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <div className="revenue-layout animate-in p-2">
+      <ToastContainer theme="light" />
+      
+      <div className="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-4">
+        <div>
+          <h1 className="premium-title">Miscellaneous Revenue</h1>
+          <p className="premium-subtitle">Record non-sales income like tips, event fees, and donations</p>
         </div>
       </div>
 
-      <ToastContainer />
+      <div className="row g-4">
+        {/* Form Column */}
+        <div className="col-xl-4">
+            <div className="orient-card border-0 shadow-platinum bg-white p-4">
+                <div className="d-flex align-items-center gap-3 mb-4">
+                    <div className="bg-gold-glow p-2 rounded-circle"><FaDonate size={18} className="text-warning" /></div>
+                    <h5 className="mb-0 fw-900 text-main">{editingId ? "Update Entry" : "New Income Log"}</h5>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
+                    <div className="col-12">
+                        <label className="stat-label mb-2 d-block">Revenue Source</label>
+                        <select className="premium-input bg-app border-0 fw-800" value={formData.source} onChange={(e) => setFormData({...formData, source: e.target.value})}>
+                            <option value="Tips">Service Tips</option>
+                            <option value="Event Rental">Event Space Rental</option>
+                            <option value="Merchandise">Branded Merchandise</option>
+                            <option value="Delivery Fee">Surcharge / Delivery</option>
+                            <option value="Donations">Grant / Donations</option>
+                            <option value="Other">Other Miscellaneous</option>
+                        </select>
+                    </div>
+
+                    <div className="row g-3">
+                        <div className="col-6">
+                            <label className="stat-label mb-2 d-block">Amount ({symbol})</label>
+                            <div className="position-relative">
+                                <FaCoins className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={10} />
+                                <input type="number" step="0.01" className="premium-input bg-app border-0 ps-5 fw-900 text-primary" placeholder="0.00" value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="col-6">
+                            <label className="stat-label mb-2 d-block">Transaction Date</label>
+                            <input type="date" className="premium-input bg-app border-0" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="col-12">
+                        <label className="stat-label mb-2 d-block">Payment Mode</label>
+                        <div className="d-flex gap-2">
+                            {['Cash', 'Card', 'Bank'].map(mode => (
+                                <button key={mode} type="button" className={`btn-premium flex-grow-1 py-2 small border-0 ${formData.paymentMethod === mode ? 'btn-primary shadow-sm' : 'bg-app text-muted fw-700'}`} onClick={() => setFormData({...formData, paymentMethod: mode})}>
+                                    {mode}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="col-12">
+                        <label className="stat-label mb-2 d-block">Remarks / Description</label>
+                        <textarea className="premium-input bg-app border-0" rows="3" placeholder="Brief metadata note..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+                    </div>
+
+                    <button type="submit" className="btn-premium btn-primary py-3 rounded-4 shadow-sm w-100" disabled={loading}>
+                        {editingId ? <><FaSave className="me-2" /> COMMIT CHANGES</> : <><FaPlus className="me-2" /> LOG REVENUE</>}
+                    </button>
+                    {editingId && (
+                        <button type="button" className="btn-premium btn-ghost w-100" onClick={() => {setEditingId(null); setFormData({source: "Tips", amount: "", description: "", date: new Date().toISOString().split("T")[0], paymentMethod: "Cash"})}}>CANCEL EDIT</button>
+                    )}
+                </form>
+            </div>
+        </div>
+
+        {/* List Column */}
+        <div className="col-xl-8">
+            <div className="orient-card p-0 border-0 shadow-platinum bg-white overflow-hidden">
+                <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light">
+                    <h6 className="mb-0 fw-800 text-main d-flex align-items-center gap-2">
+                        <FaDatabase className="text-primary" /> Miscellaneous Revenue Ledger
+                    </h6>
+                    <span className="badge badge-blue">Audit Trail</span>
+                </div>
+                
+                <div className="table-container border-0">
+                    <table className="premium-table">
+                        <thead>
+                            <tr>
+                                <th>Source / Metadata</th>
+                                <th>Channel</th>
+                                <th>Execution Date</th>
+                                <th>Valuation</th>
+                                <th className="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {incomes.length > 0 ? incomes.slice(0, 15).map(inc => (
+                                <tr key={inc._id}>
+                                    <td>
+                                        <div className="text-main fw-800">{inc.source}</div>
+                                        <div className="tiny text-muted truncate">{inc.description || 'No metadata description'}</div>
+                                    </td>
+                                    <td><span className="badge badge-blue">{inc.paymentMethod}</span></td>
+                                    <td><div className="text-main small fw-700">{new Date(inc.date).toLocaleDateString()}</div></td>
+                                    <td><div className="text-primary fw-900">{symbol}{inc.amount?.toFixed(2)}</div></td>
+                                    <td className="text-center">
+                                        <div className="d-flex justify-content-center gap-2">
+                                            <button className="btn-premium btn-ghost p-2 rounded-circle" onClick={() => { setEditingId(inc._id); setFormData(inc); }}><FaEdit size={10} /></button>
+                                            <button className="btn-premium btn-ghost p-2 rounded-circle text-danger" onClick={() => handleDelete(inc._id)}><FaTrash size={10} /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan="5" className="text-center py-5 opacity-40">
+                                        <FaHistory size={32} className="mb-2" />
+                                        <div className="fw-800">No miscellaneous inflow records</div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <style>{`
+        .tiny { font-size: 0.7rem; }
+        .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+      `}</style>
     </div>
   );
 };

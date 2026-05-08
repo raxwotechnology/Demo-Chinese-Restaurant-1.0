@@ -1,844 +1,248 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import "./CashierOrderHistory.css";
-// import { printToBothPrinters } from "../utils/dualPrinter";
-import { printReceiptToBoth } from "../utils/printReceipt";
+import { motion, AnimatePresence } from "framer-motion";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {
+  Search,
+  Filter,
+  FileSpreadsheet,
+  FileText,
+  Printer,
+  Trash2,
+  Calendar,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Hash,
+  User,
+  CreditCard,
+  Clock,
+  ExternalLink,
+  CheckCircle2
+} from "lucide-react";
 import ReceiptModal from "./ReceiptModal";
-
-if (!window.printElement) {
-  window.printElement = (element) => {
-    const originalContents = document.body.innerHTML;
-    const printContent = element.outerHTML;
-
-    document.body.innerHTML = `
-      <style>
-        body { font-family: monospace; max-width: 400px; margin: auto; }
-        h3, p, li { display: block; width: 100%; text-align: left; }
-      </style>
-      ${printContent}
-    `;
-
-    window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload();
-  };
-}
+import API_BASE_URL from "../apiConfig";
+import "../styles/PremiumUI.css";
 
 const CashierOrderHistory = () => {
   const [orders, setOrders] = useState([]);
-  const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
-    status: "",
-    orderType: "",        // "table" or "takeaway"
-    deliveryType: ""
-  });
+  const [filters, setFilters] = useState({ startDate: "", endDate: "", status: "", orderType: "" });
   const [receiptOrder, setReceiptOrder] = useState(null);
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState(0); // 0 to 100
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [excelProgress, setExcelProgress] = useState(0);
-  const [loading, setLoading] = useState(false); // ← New
-  const [currentPage, setCurrentPage] = useState(1); // ← New
-  const ORDERS_PER_PAGE = 20; // ← Configurable
-
-  useEffect(() => {
-    fetchOrders();
-  }, [filters]);
-
-  const fetchOrders = async () => {
-    setLoading(true); 
-    const token = localStorage.getItem("token");
-
-    // Get start and end of selected date
-    const start = new Date(filters.startDate);
-    const end = new Date(filters.endDate);
-
-    // Set time to start & end of day
-    start.setHours(0, 0, 0, 0);     // 00:00:00
-    end.setHours(23, 59, 59, 999); // 23:59:59
-
-    const params = new URLSearchParams();
-
-    if (filters.startDate) params.append("startDate", start);
-    if (filters.endDate) params.append("endDate", end);
-    if (filters.status) params.append("status", filters.status);
-    if (filters.orderType) params.append("orderType", filters.orderType);
-    if (filters.deliveryType) params.append("deliveryType", filters.deliveryType);
-
-    try {
-      const res = await axios.get(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/orders?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      setOrders(res.data);
-    } catch (err) {
-      console.error("Failed to load orders:", err.response?.data || err.message);
-      alert("Failed to load order history");
-    } finally {
-      setLoading(false); // ← Stop loading
-    }
-  };
-
-  const exportToExcel = async () => {
-    if (orders.length === 0) {
-      alert("No orders to export.");
-      return;
-    }
-
-    setIsExportingExcel(true);
-    setExcelProgress(0);
-
-    const formatDate = (dateStr) => {
-      if (!dateStr) return "N/A";
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? "Invalid Date" : d.toLocaleString();
-    };
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setExcelProgress(20);
-
-      const symbol = localStorage.getItem("currencySymbol") || "$";
-      const total = orders.length;
-      const worksheetData = [];
-
-      for (let i = 0; i < orders.length; i++) {
-        const order = orders[i];
-
-        // ✅ 1. Format items as "Item xQty, ..."
-        const itemsText = order.items
-          ?.map(item => `${item.name} x${item.quantity}`)
-          .join(", ") || "—";
-
-        // ✅ 2. Format Table / Takeaway column exactly as requested
-        let tableTakeawayText;
-        if (order.tableNo > 0) {
-          tableTakeawayText = `Table ${order.tableNo}`;
-        } else {
-          if (order.deliveryType === "Customer Pickup") {
-            tableTakeawayText = `Takeaway - ${order.deliveryType}`;
-          } else {
-            tableTakeawayText = `Takeaway - ${order.deliveryPlaceName || order.deliveryType || "—"}`;
-          }
-        }
-
-        worksheetData.push({
-          Date: formatDate(order.createdAt),
-          Customer: order.customerName || "—",
-          "Table / Takeaway": tableTakeawayText, // Updated column name for clarity
-          Status: order.status || "—",
-          Items: itemsText,
-          Total: order.totalPrice ? `${symbol}${order.totalPrice.toFixed(2)}` : "—"
-        });
-
-        if (i % 100 === 0 || i === orders.length - 1) {
-          const progress = Math.min(90, Math.round(((i + 1) / total) * 100));
-          setExcelProgress(progress);
-        }
-      }
-
-      setExcelProgress(95);
-
-      const XLSX = await import("xlsx");
-      const ws = XLSX.utils.json_to_sheet(worksheetData);
-      const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
-      const colWidths = [];
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const col = XLSX.utils.encode_col(C);
-        const maxWidth = worksheetData.reduce((w, row) => {
-          const cell = row[Object.keys(row)[C]] || "";
-          return Math.max(w, (cell?.toString()?.length || 10));
-        }, 10);
-        colWidths.push({ wch: Math.min(maxWidth + 2, 50) }); // cap at 50 chars
-      }
-      ws['!cols'] = colWidths;
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Orders");
-      XLSX.writeFile(wb, "cashier_orders.xlsx");
-
-      setExcelProgress(100);
-    } catch (err) {
-      console.error("Excel export failed:", err);
-      alert("Failed to export Excel file.");
-    } finally {
-      setTimeout(() => {
-        setIsExportingExcel(false);
-        setExcelProgress(0);
-      }, 300);
-    }
-  };
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const ORDERS_PER_PAGE = 50;
 
   const symbol = localStorage.getItem("currencySymbol") || "$";
 
-  const exportToPDF = async () => {
-    if (orders.length === 0) {
-      alert("No orders to export.");
-      return;
-    }
+  useEffect(() => {
+    fetchOrders(1);
+  }, [filters]);
 
-    setIsExportingPDF(true);
-    setPdfProgress(0);
-
-    const symbol = localStorage.getItem("currencySymbol") || "$";
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWidth = 210;
-    const margin = 10;
-    const tableWidth = pageWidth - 2 * margin;
-    const ROWS_PER_PAGE = 20;
-    const totalPages = Math.ceil(orders.length / ROWS_PER_PAGE);
-
+  const fetchOrders = async (page = 1) => {
+    setLoading(true);
+    setCurrentPage(page);
     try {
-      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-        if (pageIndex > 0) pdf.addPage();
-
-        // Create table for this page
-        const table = document.createElement("table");
-        table.style.width = `${tableWidth}mm`;
-        table.style.fontSize = "12px";
-        table.style.borderCollapse = "collapse";
-        table.style.fontFamily = "sans-serif";
-
-        const thead = document.createElement("thead");
-        thead.innerHTML = `
-          <tr>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Date</th>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Customer</th>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Table/Type</th>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Status</th>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Items</th>
-            <th style="border:0.5px solid #000; padding:4px; background:#f0f0f0;">Total</th>
-          </tr>
-        `;
-        table.appendChild(thead);
-
-        const tbody = document.createElement("tbody");
-        const start = pageIndex * ROWS_PER_PAGE;
-        const end = Math.min(start + ROWS_PER_PAGE, orders.length);
-        for (let i = start; i < end; i++) {
-          const order = orders[i];
-          const itemsText = order.items
-            .map(item => `${item.name} x${item.quantity}`)
-            .join(", ");
-
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td style="border:0.5px solid #000; padding:4px;">${new Date(order.createdAt).toLocaleString()}</td>
-            <td style="border:0.5px solid #000; padding:4px;">${order.customerName || ""}</td>
-            <td style="border:0.5px solid #000; padding:4px;">${order.tableNo > 0 ? `Table ${order.tableNo}` : order.deliveryType === "Customer Pickup" ? `Takeway - ${order.deliveryType}` : `Takeaway - ${order.deliveryPlaceName}`}</td>
-            <td style="border:0.5px solid #000; padding:4px;">${order.status || ""}</td>
-            <td style="border:0.5px solid #000; padding:4px; font-size:12px;">${itemsText}</td>
-            <td style="border:0.5px solid #000; padding:4px; text-align:right;">${symbol}${(order.totalPrice || 0).toFixed(2)}</td>
-          `;
-          tbody.appendChild(row);
-        }
-        table.appendChild(tbody);
-
-        table.style.position = "absolute";
-        table.style.left = "-10000px";
-        document.body.appendChild(table);
-
-        const canvas = await html2canvas(table, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#fff",
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-        const imgWidth = tableWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        pdf.addImage(imgData, "PNG", margin, margin, imgWidth, imgHeight);
-
-        document.body.removeChild(table);
-
-        // ✅ Update progress: (pageIndex + 1) / totalPages
-        const progress = Math.round(((pageIndex + 1) / totalPages) * 100);
-        setPdfProgress(progress);
-      }
-
-      pdf.save("cashier_orders.pdf");
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams({ ...filters, page, limit: ORDERS_PER_PAGE });
+      const res = await axios.get(`${API_BASE_URL}/api/auth/orders?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setOrders(res.data.orders || []);
+      setTotalPages(res.data.totalPages || 0);
+      setTotalCount(res.data.totalCount || 0);
     } catch (err) {
-      console.error("PDF export failed:", err);
-      alert("Failed to generate PDF. Please try with fewer orders.");
+      toast.error("Archive synchronization failed");
     } finally {
-      setIsExportingPDF(false);
-      setPdfProgress(0); // Reset when done
+      setLoading(false);
     }
   };
 
-  
-
-  // 🧾 Generate Receipt & Print/Export
-  const generateReceipt = (order) => {
-    const symbol = localStorage.getItem("currencySymbol") || "$";
-    const customerName = order.customerName || "-";
-    const customerPhone = order.customerPhone || "-";
-    const tableNo = order.tableNo || 0;
-    const totalPrice = order.totalPrice || 0;
-
-    // Create container
-    const container = document.createElement("div");
-    container.id = "dynamic-receipt";
-    container.style.position = "fixed";
-    container.style.top = "0";
-    container.style.left = "0";
-    container.style.right = "0";
-    container.style.zIndex = "10000";
-    container.style.background = "#fff";
-    container.style.padding = "20px";
-    container.style.fontFamily = "Calibri, sans-serif"; // ✅ Calibri font
-    container.style.maxWidth = "380px";
-    container.style.margin = "auto";
-    container.style.boxShadow = "0 0 10px rgba(0,0,0,0.25)";
-    container.style.border = "1px solid #ccc";
-    container.style.borderRadius = "10px";
-
-    // Generate invoice detail rows with dash-fill alignment
-    const invoiceDetails = `
-      <div style="font-size:14px; margin-bottom:12px; line-height:1.6;">
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Invoice No:</strong></div>
-          <div>${order.invoiceNo || "-"}</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Date:</strong></div>
-          <div>${new Date(order.createdAt || Date.now()).toLocaleString()}</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Customer:</strong></div>
-          <div>${customerName}</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Phone:</strong></div>
-          <div>${customerPhone}</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Order Type:</strong></div>
-          <div>${tableNo > 0 ? `Dine In - Table ${tableNo}` : "Takeaway"}</div>
-        </div>
-        ${tableNo <= 0 && order.deliveryType ? `
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div style="width:90px; line-height:0; padding-bottom:4px;"><strong>Delivery Type:</strong></div>
-          <div>${order.deliveryType}</div>
-        </div>` : ""}
-      </div>
-    `;
-
-    // Generate item rows
-    const itemRows = order.items.map(item => `
-      <tr>
-        <td style="padding:4px 0; width:50%; text-align:left;">${item.name}</td>
-        <td style="padding:4px 0; width:20%; text-align:center;">${item.quantity}</td>
-        <td style="padding:4px 0; width:30%; text-align:right;">${symbol}${(item.price || 0).toFixed(2)}</td>
-      </tr>
-    `).join("");
-
-    // Service charge row
-    const serviceChargeRow = order.serviceCharge > 0 ? `
-      <tr>
-        <td style="padding:4px 0; text-align:left;">Service Charge (${((order.serviceCharge * 100) / (order.subtotal || 1)).toFixed(2)}%)</td>
-        <td></td>
-        <td style="padding:4px 0; text-align:right;">${symbol}${order.serviceCharge.toFixed(2)}</td>
-      </tr>
-    ` : "";
-
-    // Delivery charge row
-    const deliveryChargeRow = order.deliveryCharge > 0 ? `
-      <tr>
-        <td style="padding:4px 0; text-align:left;">Delivery Charge</td>
-        <td></td>
-        <td style="padding:4px 0; text-align:right;">${symbol}${order.deliveryCharge.toFixed(2)}</td>
-      </tr>
-    ` : "";
-
-    // Payment section
-    const paymentSection = order.payment ? `
-      <p style="margin:4px;"><strong>Paid via:</strong></p>
-      ${order.payment.cash > 0 ? `<p style="margin:4px;">Cash: ${symbol}${order.payment.cash.toFixed(2)}</p>` : ""}
-      ${order.payment.card > 0 ? `<p style="margin:4px;">Card: ${symbol}${order.payment.card.toFixed(2)}</p>` : ""}
-      ${order.payment.bankTransfer > 0 ? `<p style="margin:4px;">Bank Transfer: ${symbol}${order.payment.bankTransfer.toFixed(2)}</p>` : ""}
-      <p style="margin:4px;"><strong>Total Paid:</strong> ${symbol}${(order.payment.totalPaid || 0).toFixed(2)}</p>
-      <p style="margin:4px;"><strong>Change Due:</strong> ${symbol}${(order.payment.changeDue || 0).toFixed(2)}</p>
-    ` : "";
-
-    // Delivery note (if exists)
-    const deliveryNoteSection = order.deliveryCharge > 0 && order.deliveryNote ? `
-      <p><strong>Delivery Note:</strong></p>
-      <p>${order.deliveryNote}</p>
-    ` : "";
-
-    // Build full HTML
-    container.innerHTML = `
-      <h3 style="text-align:center; margin:0;"><strong>Gasma</strong></h3>
-      <h3 style="text-align:center; margin:4px 0 12px;"><strong>Chinese Restaurant</strong></h3>
-      <p style="text-align:center; margin:0;">No. 14/2/D, Pugoda Road, Katulanda, Dekatana.</p>
-      <p style="text-align:center; margin:0 0 16px;">0777122797</p>
-      <hr />
-
-      ${invoiceDetails}
-
-      <hr />
-
-      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
-        <thead>
-          <tr>
-            <th style="padding:4px 0; width:50%; text-align:left;">Items</th>
-            <th style="padding:4px 0; width:20%; text-align:center;">Qty</th>
-            <th style="padding:4px 0; width:30%; text-align:right;">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemRows}
-          ${serviceChargeRow}
-          ${deliveryChargeRow}
-        </tbody>
-      </table>
-
-      <hr />
-      <h5 style="text-align:right; margin:0;">Total: ${symbol}${totalPrice.toFixed(2)}</h5>
-
-      ${paymentSection ? `<hr />${paymentSection}` : ""}
-
-      <hr />
-      <p style="text-align:center; margin:8px 0;">Thank you for your order!</p>
-      <p style="text-align:center; margin:4px 0; font-size:12px;">SOFTWARE BY: RAXWO (Pvt) Ltd.</p>
-      <p style="text-align:center; margin:4px 0 16px; font-size:12px;">CONTACT: 074 357 3333</p>
-      <hr />
-
-      ${deliveryNoteSection}
-    `;
-
-    document.body.appendChild(container);
-
-    // ========== PRINT & EXPORT FUNCTIONS ==========
-
-    const exportPDF = () => {
-      if (typeof html2canvas !== 'undefined' && typeof jsPDF !== 'undefined') {
-        html2canvas(container).then((canvas) => {
-          const imgData = canvas.toDataURL("image/png");
-          const pdf = new jsPDF("p", "mm", "a4");
-          const width = pdf.internal.pageSize.getWidth();
-          const height = (canvas.height * width) / canvas.width;
-          pdf.addImage(imgData, "PNG", 0, 0, width, height);
-          pdf.save("receipt.pdf");
-        });
-      } else {
-        alert("PDF libraries not loaded. Please include html2canvas and jsPDF.");
-      }
-    };
-
-    const printReceipt = () => {
-      const originalContent = document.body.innerHTML;
-      const printWindow = window.open("", "_blank");
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Receipt</title>
-            <style>
-              body { margin: 0; padding: 20px; font-family: Calibri, sans-serif; }
-              #print-receipt { max-width: 380px; margin: auto; }
-            </style>
-          </head>
-          <body>
-            <div id="print-receipt">${container.innerHTML}</div>
-            <script>
-              window.onload = () => { window.print(); setTimeout(window.close, 500); };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    };
-
-    // ========== USER PROMPT ==========
-
-    const proceed = window.confirm("Do you want to print the receipt?");
-    if (proceed) {
-      // printReceipt();
-      if (window.qz && qz.websocket.isActive()) {
-        printReceiptToBoth(container.innerHTML);
-      } else {
-        console.warn("QZ Tray not connected — using browser print");
-        const printWindow = window.open("", "_blank");
-        printWindow.document.write(container.innerHTML);
-        printWindow.print();
-      }
-    } else {
-      exportPDF();
-    }
-
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      if (container.parentNode) {
-        container.remove();
-      }
-    }, 5000);
-  };
-
-  const handleDeleteOrder = async (orderId, customerName) => {
-    const userRole = localStorage.getItem("userRole");
-    if (userRole !== "admin") {
-      alert("Only admins can delete orders.");
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete the order for ${customerName}? This cannot be undone.`)) {
-      return;
-    }
-
+  const handleDelete = async (id) => {
+    if (!window.confirm("Purge this transaction record?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/order/${orderId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      // Remove from UI
-      setOrders(prev => prev.filter(order => order._id !== orderId));
-      alert("Order deleted successfully");
+      await axios.delete(`${API_BASE_URL}/api/auth/order/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setOrders(orders.filter(o => o._id !== id));
+      toast.success("Transaction purged from database");
     } catch (err) {
-      console.error("Delete failed:", err.response?.data || err.message);
-      alert("Failed to delete order: " + (err.response?.data?.error || "Unknown error"));
+      toast.error("Security lockout: Deletion failed");
     }
   };
-
-  // Add this after handleDeleteOrder
-  const markAsReady = async (orderId) => {
-    if (!window.confirm("Mark this order as Ready?")) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      
-      // Update order status to "Ready"
-      await axios.put(
-        `https://demo-chinese-restaurant-1-0.onrender.com/api/auth/order/${orderId}/status`,
-        { status: "Ready" },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      // Optional: Send notification (same as KitchenLanding)
-      // You can skip if not needed for cashier
-      /*
-      await axios.post(
-        "https://demo-chinese-restaurant-1-0.onrender.com/api/auth/notifications/send",
-        {
-          userId: orderId,
-          message: `Order #${orderId} is ready.`,
-          type: "update",
-          role: "cashier",
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      */
-
-      // Update UI: change status locally
-      setOrders(prev =>
-        prev.map(order =>
-          order._id === orderId ? { ...order, status: "Ready" } : order
-        )
-      );
-
-      alert("✅ Order marked as Ready!");
-    } catch (err) {
-      console.error("Failed to mark as ready:", err.response?.data || err.message);
-      alert("❌ Failed to update order status");
-    }
-  };
-
-
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Pagination logic
-  const indexOfLastOrder = currentPage * ORDERS_PER_PAGE;
-  const indexOfFirstOrder = indexOfLastOrder - ORDERS_PER_PAGE;
-  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
-  const totalPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
-    // <div className="mobile-scroll-container container-fluid px-3">
-   <div className="mobile-scroll-container container my-4"> 
-      <h2 className="mb-4 fw-bold text-primary border-bottom pb-2">Order History</h2>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="history-suite">
+      <ToastContainer theme="colored" />
 
-      {/* Filters & Actions */}
-      <div className="row g-3 align-items-end mb-4" style={{ overflowX: "auto", width: "100%" }}>
-        <div className="col-md-2">
-          <label className="form-label">Start Date</label>
-          <input
-            name="startDate"
-            type="date"
-            className="form-control"
-            onChange={handleFilterChange}
-          />
+      {/* Header */}
+      <div className="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-4">
+        <div>
+          <h1 className="text-hero">Transaction Archives</h1>
+          <p className="text-subtitle">Comprehensive ledger of all culinary operations and financial settlements</p>
         </div>
-        <div className="col-md-2">
-          <label className="form-label">End Date</label>
-          <input
-            name="endDate"
-            type="date"
-            className="form-control"
-            onChange={handleFilterChange}
-          />
+        <div className="d-flex gap-3">
+          <button className="btn-indigo secondary py-2 px-4"><FileSpreadsheet size={18} /> EXCEL</button>
+          <button className="btn-indigo secondary py-2 px-4"><FileText size={18} /> PDF</button>
         </div>
-        <div className="col-md-2">
-          <label className="form-label">Status</label>
-          <select
-            name="status"
-            className="form-select"
-            onChange={handleFilterChange}
-          >
-            <option value="">All</option>
-            <option value="Pending">Pending</option>
-            <option value="Processing">Processing</option>
-            <option value="Ready">Ready</option>
-            <option value="Completed">Completed</option>
-          </select>
-        </div>
-        {/* Order Type Filter */}
-        <div className="col-md-2">
-          <label className="form-label">Order Type</label>
-          <select
-            name="orderType"
-            className="form-select"
-            value={filters.orderType}
-            onChange={handleFilterChange}
-          >
-            <option value="">All Types</option>
-            <option value="table">Dine-In</option>
-            <option value="takeaway">Takeaway</option>
-          </select>
-        </div>
+      </div>
 
-        {/* Delivery Type Filter (only relevant for Takeaway) */}
-        {filters.orderType === "takeaway" || filters.orderType === "" && (
+      {/* Modern Filter Suite */}
+      <div className="bento-card mb-5 p-4">
+        <div className="row g-3 align-items-end">
+          <div className="col-md-3">
+            <span className="tiny-caps mb-2 d-block opacity-50">Range Start</span>
+            <div className="input-group-premium">
+              <Calendar size={16} />
+              <input type="date" className="premium-input-transparent" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} />
+            </div>
+          </div>
+          <div className="col-md-3">
+            <span className="tiny-caps mb-2 d-block opacity-50">Range End</span>
+            <div className="input-group-premium">
+              <Calendar size={16} />
+              <input type="date" className="premium-input-transparent" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} />
+            </div>
+          </div>
           <div className="col-md-2">
-            <label className="form-label">Delivery Type</label>
-            <select
-              name="deliveryType"
-              className="form-select"
-              value={filters.deliveryType}
-              onChange={handleFilterChange}
-            >
-              <option value="">All</option>
-              <option value="Customer Pickup">Customer Pickup</option>
-              <option value="Delivery Service">Delivery Service</option>
+            <span className="tiny-caps mb-2 d-block opacity-50">Status</span>
+            <select className="premium-select w-100" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
+              <option value="">Full Cycle</option>
+              <option value="Completed">Completed</option>
+              <option value="Ready">Ready</option>
+              <option value="Pending">Pending</option>
             </select>
           </div>
-        )}
-        <div className="col-md-2 d-flex gap-2">
-          <button className="btn btn-primary w-100" onClick={fetchOrders}>Apply</button>
-        </div>
-      </div>
-
-      <div className="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-        
-        <div className="d-flex gap-2"></div>
-        
-        <div className="d-flex gap-2">
-          <button className="btn btn-success" onClick={exportToExcel} disabled={isExportingExcel || isExportingPDF}>
-            📤 Export Excel
-            {isExportingExcel && (
-              <span className="ms-2 pdf-export-loader">
-                <span>{excelProgress}%</span>
-              </span>
-            )}
-          </button>
-          <button className="btn btn-danger" onClick={exportToPDF} disabled={isExportingPDF}>
-            📄 Export PDF
-            {isExportingPDF && (
-              <span className="ms-2 pdf-export-loader">
-                <span>{pdfProgress}%</span>
-              </span>
-            )}
-            {/* <span className="progress-text" style={{ color: 'red', background: 'white', borderRadius: '50%' }}>
-              {pdfProgress}%
-            </span> */}
-          </button>
-          
-        </div>
-      </div>
-
-      {/* Order Table */}
-      {loading ? (
-        <div className="text-center my-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
+          <div className="col-md-2">
+            <span className="tiny-caps mb-2 d-block opacity-50">Order Mode</span>
+            <select className="premium-select w-100" value={filters.orderType} onChange={(e) => setFilters({ ...filters, orderType: e.target.value })}>
+              <option value="">All Channels</option>
+              <option value="table">Dine-In</option>
+              <option value="takeaway">Takeaway</option>
+            </select>
           </div>
-          <p className="mt-2">Fetching orders...</p>
+          <div className="col-md-2">
+            <button className="btn-indigo w-100 py-3 justify-content-center" onClick={() => fetchOrders(1)}>
+              <Filter size={18} />
+              <span>SYNC</span>
+            </button>
+          </div>
         </div>
-      ) : orders.length === 0 ? (
-        <p className="text-muted">No orders found.</p>
-      ) : (
-         <>
-          <div
-            id="order-table"
-            className="shadow-sm border rounded"
-            style={{
-              overflowX: "auto",
-              width: "100%"
-            }}
-          >
-            <table className="table table-hover align-middle table-bordered mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th>Date</th>
-                  <th>Customer</th>
-                  <th>Table No/ Takeaway</th>
-                  <th>Status</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Receipt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentOrders.map((order) => (
-                  <tr key={order._id}>
-                    <td>{new Date(order.createdAt).toLocaleString()}</td>
-                    <td>{order.customerName}</td>
+      </div>
+
+      {/* Ledger Table */}
+      <div className="bento-card p-0 overflow-hidden mb-5">
+        <div className="table-responsive">
+          <table className="premium-data-table">
+            <thead>
+              <tr>
+                <th>TICKET & ORIGIN</th>
+                <th>CUSTOMER IDENT</th>
+                <th>CHANNEL</th>
+                <th>INVENTORY</th>
+                <th>NET VALUE</th>
+                <th>AUTHORIZATION</th>
+                <th className="text-end">OPERATIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence mode="popLayout">
+                {loading ? (
+                  <tr><td colSpan="7" className="text-center py-5"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="spinner-border text-indigo" /></td></tr>
+                ) : orders.length === 0 ? (
+                  <tr><td colSpan="7" className="text-center py-5"><div className="opacity-20"><Layers size={48} className="mb-2" /><p>No transaction history found</p></div></td></tr>
+                ) : orders.map((order, i) => (
+                  <motion.tr
+                    key={order._id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                  >
                     <td>
-                      {order.tableNo > 0 
-                        ? `Table ${order.tableNo} - ${order.waiterName || ""}` 
-                        : `Takeaway (${order.deliveryType || ""} - ${order.deliveryPlaceName || ""})`}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          order.status === "Ready"
-                            ? "bg-success"
-                            : order.status === "Processing"
-                            ? "bg-primary"
-                            : order.status === "Completed"
-                            ? "bg-secondary"
-                            : "bg-warning text-dark"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td>
-                      <ul className="mb-0 small list-unstyled">
-                        {order.items.map((item, idx) => (
-                          <li key={idx}>
-                            {item.name} x{item.quantity}
-                          </li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td>{symbol}{order.totalPrice?.toFixed(2)}</td>
-                    <td>
-                      <div className="d-flex gap-2">
-                        {/* Mark as Ready Button (only for Pending/Processing) */}
-                        {(order.status === "Pending" || order.status === "Processing") && (
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => markAsReady(order._id)}
-                            title="Mark order as ready for pickup"
-                          >
-                            ✅ Ready
-                          </button>
-                        )}
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          // onClick={() => generateReceipt(order)}
-                          onClick={() => setReceiptOrder(order)}
-                        >
-                          🖨️ Print
-                        </button>
-                        {/* Delete Button — ONLY for admins */}
-                        {localStorage.getItem("userRole") === "admin" && (
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteOrder(order._id, order.customerName)}
-                            title="Delete Order"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="stat-icon-wrapper mini"><Hash size={12} /></div>
+                        <div>
+                          <span className="fw-900 d-block">#{order.invoiceNo || order._id.slice(-6)}</span>
+                          <span className="tiny-caps opacity-50">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
                     </td>
-                  </tr>
+                    <td>
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="stat-icon-wrapper mini secondary"><User size={12} /></div>
+                        <div>
+                          <span className="fw-800 d-block">{order.customerName}</span>
+                          <span className="small opacity-50">{order.customerPhone}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className={`badge-modern ${order.tableNo && order.tableNo !== 'Takeaway' ? 'indigo' : 'info'}`}>
+                        {order.tableNo && order.tableNo !== 'Takeaway' ? `Table ${order.tableNo}` : 'Takeaway'}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="small fw-700 opacity-60">
+                        {order.items.slice(0, 1).map(i => i.name).join(", ")}
+                        {order.items.length > 1 && <span className="text-indigo"> +{order.items.length - 1} More</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="fw-900 text-main h6 m-0">{symbol}{order.totalPrice?.toLocaleString()}</div>
+                    </td>
+                    <td>
+                      <div className={`status-pill ${order.status.toLowerCase()}`}>
+                        {order.status === 'Completed' ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                        {order.status}
+                      </div>
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex justify-content-end gap-2">
+                        <button className="btn-action primary" onClick={() => setReceiptOrder(order)}><Printer size={16} /></button>
+                        <button className="btn-action danger" onClick={() => handleDelete(order._id)}><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </motion.tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <nav className="mt-3">
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    &laquo; Prev
-                  </button>
-                </li>
-
-                {[...Array(totalPages)].map((_, i) => {
-                  const pageNum = i + 1;
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
-                    return (
-                      <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
-                        <button className="page-link" onClick={() => paginate(pageNum)}>
-                          {pageNum}
-                        </button>
-                      </li>
-                    );
-                  } else if (
-                    (pageNum === currentPage - 2 && currentPage > 3) ||
-                    (pageNum === currentPage + 2 && currentPage < totalPages - 2)
-                  ) {
-                    return (
-                      <li key={pageNum} className="page-item disabled">
-                        <span className="page-link">...</span>
-                      </li>
-                    );
-                  }
-                  return null;
-                })}
-
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next &raquo;
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          )}
-        </>
-      )}
+      {/* Immersive Pagination */}
+      <div className="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm border">
+        <div className="tiny-caps opacity-50">Synchronizing {orders.length} of {totalCount} Records</div>
+        <div className="pagination-suite d-flex gap-3 align-items-center">
+          <button className="btn-refresh-premium" disabled={currentPage === 1} onClick={() => fetchOrders(currentPage - 1)}><ChevronLeft size={20} /></button>
+          <div className="fw-900 text-indigo">{currentPage} <span className="opacity-20 px-2">/</span> {totalPages}</div>
+          <button className="btn-refresh-premium" disabled={currentPage === totalPages} onClick={() => fetchOrders(currentPage + 1)}><ChevronRight size={20} /></button>
+        </div>
+      </div>
 
       {receiptOrder && (
-        <ReceiptModal
-          order={receiptOrder}
-          onClose={() => setReceiptOrder(null)}
-        />
+        <ReceiptModal order={receiptOrder} handleClose={() => setReceiptOrder(null)} />
       )}
-    </div>
+
+      <style>{`
+        .history-suite { padding-bottom: 100px; }
+        .input-group-premium { background: #f8fafc; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .input-group-premium:focus-within { background: white; border-color: var(--p-indigo-600); box-shadow: 0 0 0 4px var(--p-indigo-50); }
+        .premium-input-transparent { border: none; background: transparent; outline: none; font-size: 0.85rem; font-weight: 700; color: var(--text-main); flex: 1; }
+        
+        .status-pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; width: fit-content; }
+        .status-pill.completed { background: #f0fdf4; color: #166534; }
+        .status-pill.pending { background: #fffbeb; color: #92400e; }
+        .status-pill.ready { background: #eff6ff; color: #1e40af; }
+        
+        .btn-action { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-subtle); background: white; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: var(--text-muted); }
+        .btn-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--p-indigo-600); color: var(--p-indigo-600); }
+        .btn-action.danger:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
+      `}</style>
+    </motion.div>
   );
 };
 
