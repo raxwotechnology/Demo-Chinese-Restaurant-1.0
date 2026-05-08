@@ -32,8 +32,12 @@ const AdminLogin = () => {
       login(data);
       navigate("/admin");
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || "Authentication failed. Please verify credentials.";
-      setError(errorMessage);
+      if (!err.response) {
+        setError("Network Error: Backend unreachable. Please verify your internet or API URL settings.");
+      } else {
+        const errorMessage = err.response?.data?.error || err.response?.data?.message || "Authentication failed. Please verify credentials.";
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
