@@ -32,7 +32,8 @@ const AdminLogin = () => {
       login(data);
       navigate("/admin");
     } catch (err) {
-      setError(err.response?.data?.message || "Authentication failed. Please verify credentials.");
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || "Authentication failed. Please verify credentials.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

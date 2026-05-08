@@ -72,10 +72,15 @@ exports.signup = async (req, res) => {
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: email.toLowerCase() });
+  
+  if (!user) {
+    return res.status(400).json({ error: "No administrator found with this email." });
+  }
 
-  if (!user || !(await user.comparePassword(password))) {
-    return res.status(400).json({ error: "Invalid credentials" });
+  const isMatch = await user.comparePassword(password);
+  if (!isMatch) {
+    return res.status(400).json({ error: "Incorrect password. Please try again." });
   }
 
   // ❌ Block login if not active
