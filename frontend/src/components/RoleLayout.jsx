@@ -3,16 +3,30 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "./ProtectedRoute";
 import useTokenCountdown from "../hooks/useTokenCountdown";
 import {
-  FaBars, FaSignOutAlt, FaTachometerAlt, FaUsers, FaKey, FaFileInvoice,
-  FaChartBar, FaUserTie, FaCalendarCheck, FaTruck, FaMoneyBillWave,
-  FaMoneyCheckAlt, FaUtensils, FaDollarSign, FaShoppingCart, FaHistory,
-  FaBookOpen, FaClipboardList, FaUserCircle, FaPercentage, FaTruckLoading, 
-  FaFirstOrder,FaMotorcycle,FaUserClock,FaCashRegister,FaBookReader,FaCoins,FaWallet,FaPrint,FaUserTag,FaDatabase
+  FaBars, FaSignOutAlt, FaUserCircle, FaRedo
 } from "react-icons/fa";
+import {
+  LayoutDashboard, FileText, BarChart3, Database, ShoppingCart, Utensils,
+  Activity, History, Truck, Receipt, FileBarChart, Coins, Wallet,
+  Package, Banknote, Settings2, UserCog, Users, UserCheck, UserPlus,
+  CalendarClock, Car, Key, Printer, MessageSquare, DollarSign, RefreshCw
+} from "lucide-react";
 import "./Sidebar.css";
 import NotificationCenter from "./NotificationCenter";
 import useRefreshStatus from "../hooks/useRefreshStatus";
-import { FaRedo } from "react-icons/fa";
+
+const NavItem = ({ to, label, icon: Icon, isActive, onClick }) => {
+  return (
+    <Link 
+      to={to} 
+      className={`nav-item ${isActive ? "active" : ""}`}
+      onClick={onClick}
+    >
+      <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+      <span className="nav-label">{label}</span>
+    </Link>
+  );
+};
 
 const RoleLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,7 +44,6 @@ const RoleLayout = () => {
     window.location.reload(); // hard reload
   };
 
-  // Auto detect mobile view
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -41,7 +54,6 @@ const RoleLayout = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Close dropdown if clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -52,87 +64,92 @@ const RoleLayout = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isSidebarExpanded = sidebarOpen || (isHovered && !isMobile);
-
-  const createMenuItem = (to, label, Icon) => {
-    const isActive = location.pathname === to;
-    return (
-      <li title={!isSidebarExpanded ? label : ""} key={to}>
-        <Link to={to} className={`menu-link ${isActive ? "active" : ""}`}>
-          <Icon className="menu-icon" />
-          {isSidebarExpanded && <span className="menu-label">{label}</span>}
-        </Link>
-      </li>
-    );
-  };
-
   const renderSidebarMenu = () => {
+    const getItemProps = (to) => ({
+      to,
+      isActive: location.pathname === to,
+      onClick: () => isMobile && setSidebarOpen(false)
+    });
+
     switch (user?.role) {
       case "admin":
         return (
           <>
-            {createMenuItem("/admin", "Dashboard", FaTachometerAlt)}
-            {createMenuItem("/cashier/today", "Daily Report", FaBookOpen)}
-            {createMenuItem("/cashier", "Order Management", FaCashRegister)}
-            {createMenuItem("/kitchen/menu", "Manage Menu", FaClipboardList)}
-            {createMenuItem("/kitchen", "Live Orders", FaShoppingCart)}
-            {createMenuItem("/cashier/orders", "Order History", FaHistory)}
-            {createMenuItem("/cashier/takeaway-orders", "Takeaway Orders", FaFirstOrder)}
-            {createMenuItem("/cashier-summery", "Cashier Summery", FaBookReader)}
+            <div className="sidebar-group-title">Main</div>
+            <NavItem label="Dashboard" icon={LayoutDashboard} {...getItemProps("/admin")} />
+            <NavItem label="Daily Report" icon={FileText} {...getItemProps("/cashier/today")} />
+            <NavItem label="Monthly Report" icon={BarChart3} {...getItemProps("/admin/report")} />
+            <NavItem label="Database Status" icon={Database} {...getItemProps("/admin/db-Status")} />
 
-            {createMenuItem("/admin/users", "User Management", FaUsers)}
-            {createMenuItem("/admin/report", "Monthly Report", FaChartBar)}
-            {createMenuItem("/admin/customers", "Custoemrs", FaUserTag)}
-            {createMenuItem("/admin/employees", "Employees", FaUserTie)}
-            
-            {createMenuItem("/kitchen/attendance/add", "Live Attendance", FaUserClock)}
-            {createMenuItem("/admin/attendance", "Attendance History", FaCalendarCheck)}
-            {createMenuItem("/cashier/driver-register", "Takeaway Driver Register", FaMotorcycle)}
-            {createMenuItem("/admin/suppliers", "Suppliers Register", FaTruck)}
-            {createMenuItem("/admin/expenses", "Supplier Expenses", FaMoneyBillWave)}
-            {createMenuItem("/cashier/other-income", "Other Incomes", FaCoins)}
-            {createMenuItem("/cashier/other-expences", "Other Expences", FaWallet)}
-            {createMenuItem("/admin/bills", "Restaurant Bills", FaFileInvoice)}            
-            {createMenuItem("/admin/salaries", "Salary Payments", FaMoneyCheckAlt)}
-            {createMenuItem("/admin/service-charge", "Service Charge", FaPercentage)}
-            {createMenuItem("/admin/delivery-charges", "Delivery Charge", FaTruckLoading)}
-            
-            
-            {createMenuItem("/printer-settings", "Printer Settings", FaPrint)}
-            {createMenuItem("/admin/signup-key", "Signup Key", FaKey)}
-            {createMenuItem("/admin/currency", "Currency", FaDollarSign)}
-            {createMenuItem("/admin/db-Status", "Database Status", FaDatabase)}
-            
-            {createMenuItem("/admin/refresh-update", "Update Refresh", FaRedo)}
+            <div className="sidebar-group-title">Operations</div>
+            <NavItem label="Order Management" icon={ShoppingCart} {...getItemProps("/cashier")} />
+            <NavItem label="Manage Menu" icon={Utensils} {...getItemProps("/admin/menu")} />
+            <NavItem label="Live Orders" icon={Activity} {...getItemProps("/kitchen")} />
+            <NavItem label="Order History" icon={History} {...getItemProps("/cashier/orders")} />
+            <NavItem label="Takeaway Orders" icon={Truck} {...getItemProps("/cashier/takeaway-orders")} />
+            <NavItem label="Restaurant Bills" icon={Receipt} {...getItemProps("/admin/bills")} />
+
+            <div className="sidebar-group-title">Financials</div>
+            <NavItem label="Cashier Summery" icon={FileBarChart} {...getItemProps("/cashier-summery")} />
+            <NavItem label="Other Incomes" icon={Coins} {...getItemProps("/cashier/other-income")} />
+            <NavItem label="Other Expenses" icon={Wallet} {...getItemProps("/cashier/other-expences")} />
+            <NavItem label="Supplier Expenses" icon={Package} {...getItemProps("/admin/expenses")} />
+            <NavItem label="Salary Payments" icon={Banknote} {...getItemProps("/admin/salaries")} />
+            <NavItem label="Service / Delivery Charges" icon={Settings2} {...getItemProps("/admin/service-charge")} />
+            <NavItem label="Currency" icon={DollarSign} {...getItemProps("/admin/currency")} />
+
+            <div className="sidebar-group-title">People</div>
+            <NavItem label="User Management" icon={UserCog} {...getItemProps("/admin/users")} />
+            <NavItem label="Customers" icon={Users} {...getItemProps("/admin/customers")} />
+            <NavItem label="Employees" icon={UserCheck} {...getItemProps("/admin/employees")} />
+            <NavItem label="Live Attendance" icon={UserPlus} {...getItemProps("/admin/attendance/add")} />
+            <NavItem label="Attendance History" icon={CalendarClock} {...getItemProps("/admin/attendance")} />
+
+            <div className="sidebar-group-title">Registration</div>
+            <NavItem label="Takeaway Driver" icon={Car} {...getItemProps("/cashier/driver-register")} />
+            <NavItem label="Suppliers Register" icon={Package} {...getItemProps("/admin/suppliers")} />
+            <NavItem label="Signup Key" icon={Key} {...getItemProps("/admin/signup-key")} />
+
+            <div className="sidebar-group-title">Settings</div>
+            <NavItem label="Printer Settings" icon={Printer} {...getItemProps("/printer-settings")} />
+            <NavItem label="Update Refresh" icon={RefreshCw} {...getItemProps("/admin/refresh-update")} />
           </>
         );
       case "cashier":
         return (
           <>
-            {createMenuItem("/cashier", "Order Management", FaCashRegister)}
-            {createMenuItem("/kitchen/menu", "Manage Menu", FaClipboardList)}
-            {createMenuItem("/kitchen", "Live Orders", FaShoppingCart)}
-            {createMenuItem("/cashier/orders", "Order History", FaHistory)}
-            {createMenuItem("/cashier/takeaway-orders", "Takeaway Orders", FaFirstOrder)}
-            {createMenuItem("/cashier/today", "Daily Report", FaBookOpen)}
-            {createMenuItem("/cashier-summery", "Cashier Summery", FaBookReader)}
-            {createMenuItem("/cashier/other-income", "Other Incomes", FaCoins)}
-            {createMenuItem("/cashier/other-expences", "Other Expences", FaWallet)}
-            {createMenuItem("/cashier/driver-register", "Driver Register", FaMotorcycle)}
-            {createMenuItem("/kitchen/kitchen-requestsForm", "Admin Requests", FaUtensils)}
-            {createMenuItem("/kitchen/attendance/add", "Live Attendance", FaUserClock)}
-            {createMenuItem("/printer-settings", "Printer Settings", FaPrint)}
+            <div className="sidebar-group-title">Sales</div>
+            <NavItem label="Order Management" icon={ShoppingCart} {...getItemProps("/cashier")} />
+            <NavItem label="Live Orders" icon={Activity} {...getItemProps("/kitchen")} />
+            <NavItem label="Order History" icon={History} {...getItemProps("/cashier/orders")} />
+            <NavItem label="Takeaway Orders" icon={Truck} {...getItemProps("/cashier/takeaway-orders")} />
             
+            <div className="sidebar-group-title">Reporting</div>
+            <NavItem label="Daily Report" icon={FileText} {...getItemProps("/cashier/today")} />
+            <NavItem label="Cashier Summery" icon={FileBarChart} {...getItemProps("/cashier-summery")} />
+            
+            <div className="sidebar-group-title">Finance</div>
+            <NavItem label="Other Incomes" icon={Coins} {...getItemProps("/cashier/other-income")} />
+            <NavItem label="Other Expenses" icon={Wallet} {...getItemProps("/cashier/other-expences")} />
+            
+            <div className="sidebar-group-title">System</div>
+            <NavItem label="Driver Register" icon={Car} {...getItemProps("/cashier/driver-register")} />
+            <NavItem label="Admin Requests" icon={MessageSquare} {...getItemProps("/admin/kitchen-requests")} />
+            <NavItem label="Live Attendance" icon={UserPlus} {...getItemProps("/cashier/attendance/add")} />
+            <NavItem label="Printer Settings" icon={Printer} {...getItemProps("/printer-settings")} />
           </>
         );
       case "kitchen":
         return (
           <>
-            {createMenuItem("/kitchen", "Live Orders", FaShoppingCart)}
-            {createMenuItem("/kitchen/history", "Order History", FaHistory)}
-            {createMenuItem("/kitchen/menu", "Manage Menu", FaClipboardList)}
-            {createMenuItem("/kitchen/kitchen-requestsForm", "Admin Requests", FaUtensils)}
-            {createMenuItem("/kitchen/attendance/add", "Attendance", FaUserClock)}
+            <div className="sidebar-group-title">Kitchen Board</div>
+            <NavItem label="Live Orders" icon={Activity} {...getItemProps("/kitchen")} />
+            <NavItem label="Order History" icon={History} {...getItemProps("/kitchen/history")} />
+            <NavItem label="Manage Menu" icon={Utensils} {...getItemProps("/kitchen/menu")} />
+            
+            <div className="sidebar-group-title">Communications</div>
+            <NavItem label="Admin Requests" icon={MessageSquare} {...getItemProps("/kitchen/kitchen-requestsForm")} />
+            <NavItem label="Attendance" icon={UserPlus} {...getItemProps("/kitchen/attendance/add")} />
           </>
         );
       default:
@@ -141,7 +158,6 @@ const RoleLayout = () => {
   };
 
   const getSidebarClass = () => {
-  // Open if: user toggled it OR (hovering + desktop + not manually opened)
     const isOpen = sidebarOpen || (isHovered && !isMobile);
     return isOpen ? "open" : "collapsed";
   };
@@ -149,7 +165,7 @@ const RoleLayout = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
     if (!sidebarOpen) {
-      setIsHovered(false); // close hover if manually opening
+      setIsHovered(false);
     }
   };
 
@@ -157,13 +173,12 @@ const RoleLayout = () => {
     <div className="layout d-flex">
       {!isMobile || sidebarOpen ? (
         <aside 
-        // className={`sidebar ${sidebarOpen ? "open" : "collapsed"}`}
-        className={`sidebar ${getSidebarClass()}`}
-        onMouseEnter={() => !isMobile && !sidebarOpen && setIsHovered(true)}
-        onMouseLeave={() => !isMobile && !sidebarOpen && setIsHovered(false)}
+          className={`sidebar ${getSidebarClass()}`}
+          onMouseEnter={() => !isMobile && !sidebarOpen && setIsHovered(true)}
+          onMouseLeave={() => !isMobile && !sidebarOpen && setIsHovered(false)}
         >
           <div className="sidebar-header d-flex align-items-center">
-            {isSidebarExpanded && (
+            {(sidebarOpen || (isHovered && !isMobile)) && (
               <>
                 <img
                   src="/logo.jpg"
@@ -212,7 +227,6 @@ const RoleLayout = () => {
           </div>
           <div className="navbar-right" ref={dropdownRef}>
             <div className="user-dropdown">
-              
               <div
                 className="user-toggle"
                 onClick={() => setUserDropdown(!userDropdown)}
