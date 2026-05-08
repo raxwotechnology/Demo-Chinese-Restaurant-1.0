@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { UserPlus, User, Mail, Lock, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import LogoImage from "../upload/logo.jpg";
+import "../styles/PremiumUI.css";
 
 const SignupForm = ({ role, title }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // 👈 Add loading state
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    setLoading(true); // 👈 Start loading
+    setLoading(true);
 
     try {
       await axios.post("https://demo-chinese-restaurant-1-0.onrender.com/api/auth/signup", {
@@ -26,78 +29,101 @@ const SignupForm = ({ role, title }) => {
     } catch (err) {
       alert("Signup failed. Try again.");
     } finally {
-      setLoading(false); // 👈 Stop loading regardless of success/failure
+      setLoading(false);
     }
   };
 
   return (
-    <div className="d-flex justify-content-center align-items-center min-vh-100 bg-light">
-      <div className="card shadow-sm p-4" style={{ maxWidth: "400px", width: "100%" }}>
-        <h4 className="text-center mb-4">{title}</h4>
-        <form onSubmit={handleSignup}>
-          <div className="mb-3">
-            <label htmlFor="name" className="form-label">Full Name</label>
-            <input
-              type="text"
-              className="form-control"
-              id="name"
-              placeholder="Enter full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              disabled={loading} // 👈 Optional: disable input during loading
-            />
+    <div className="auth-page-luxury">
+      <div className="auth-split-left">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="auth-card-premium"
+        >
+          <div className="auth-logo-box">
+            <img src={LogoImage} alt="Logo" />
           </div>
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email address</label>
-            <input
-              type="email"
-              className="form-control"
-              id="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="mb-3">
-            <label htmlFor="password" className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              id="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <button
-            type="submit"
-            className="btn btn-success w-100"
-            disabled={loading} // 👈 Disable button while loading
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                Signing up...
-              </>
-            ) : (
-              `Sign Up as ${role.charAt(0).toUpperCase() + role.slice(1)}`
-            )}
-          </button>
-        </form>
+          
+          <h2 className="auth-title-premium">Sign Up</h2>
+          <span className="auth-subtitle-premium">{title}</span>
 
-        <hr />
+          <form onSubmit={handleSignup} className="mt-4">
+            <div className="auth-input-group">
+              <label>Full Name</label>
+              <div className="position-relative">
+                <User className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="text"
+                  className="auth-input-premium ps-5"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
 
-        <p className="text-center mb-0">
-          Already have an account?{" "}
-          <Link to={`/${role}-login`} className="text-decoration-none">
-            Login
-          </Link>
-        </p>
+            <div className="auth-input-group">
+              <label>Email Address</label>
+              <div className="position-relative">
+                <Mail className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="email"
+                  className="auth-input-premium ps-5"
+                  placeholder="email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="auth-input-group">
+              <label>Password</label>
+              <div className="position-relative">
+                <Lock className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="password"
+                  className="auth-input-premium ps-5"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="auth-btn-primary mt-4 auth-btn-gold"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="animate-spin" /> : "Register Account"}
+              {!loading && <ArrowRight size={20} />}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            <p className="text-center text-sm text-muted">
+              Already have an account?{" "}
+              <Link to={`/${role}-login`} className="auth-link-gold">
+                Login
+              </Link>
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="auth-split-right">
+        <div className="text-center" style={{ zIndex: 10 }}>
+          <UserPlus size={80} color="#f59e0b" className="mb-4" />
+          <h1 className="luxury-text-orient">JOIN</h1>
+          <p className="luxury-est">RESTAURANT MANAGEMENT SYSTEM</p>
+        </div>
       </div>
     </div>
   );

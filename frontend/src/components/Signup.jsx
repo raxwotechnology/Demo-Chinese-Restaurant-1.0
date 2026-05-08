@@ -1,8 +1,11 @@
 // src/components/Signup.jsx
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { UserPlus, User, Mail, Lock, Key, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import LogoImage from "../upload/logo.jpg";
+import "../styles/PremiumUI.css";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -10,6 +13,7 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [key, setKey] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,10 +23,12 @@ const Signup = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    // Validate fields
     if (!name || !email || !password || (requiresKey && !key)) {
       setError("All fields are required");
+      setLoading(false);
       return;
     }
 
@@ -32,90 +38,129 @@ const Signup = () => {
         email,
         password,
         role,
-        ...(requiresKey && { signupKey: key }), // only include if needed
+        ...(requiresKey && { signupKey: key }),
       });
 
       alert(`${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully!`);
       navigate(`/${role}-login`);
     } catch (err) {
       setError(err.response?.data?.error || "Signup failed. Try again.");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="d-flex justify-content-center align-items-center min-vh-100 bg-light">
-      <div className="card shadow-sm p-4" style={{ maxWidth: "400px", width: "100%" }}>
-        <h4 className="text-center mb-4">Sign Up as {role.charAt(0).toUpperCase() + role.slice(1)}</h4>
+    <div className="auth-page-luxury">
+      <div className="auth-split-left">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="auth-card-premium"
+          style={{ maxWidth: '480px' }}
+        >
+          <div className="auth-logo-box">
+            <img src={LogoImage} alt="Logo" />
+          </div>
+          
+          <h2 className="auth-title-premium">Join Team</h2>
+          <span className="auth-subtitle-premium">Register as {role.toUpperCase()}</span>
 
-        <form onSubmit={handleSignup}>
-          <div className="mb-3">
-            <label htmlFor="name" className="form-label">Full Name</label>
-            <input
-              type="text"
-              className="form-control"
-              id="name"
-              placeholder="Enter full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email address</label>
-            <input
-              type="email"
-              className="form-control"
-              id="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="mb-3">
-            <label htmlFor="password" className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              id="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Conditional Signup Key Field */}
-          {requiresKey && (
-            <div className="mb-3">
-              <label htmlFor="key" className="form-label">Signup Key</label>
-              <input
-                type="text"
-                className="form-control"
-                id="key"
-                placeholder="Enter signup key"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                required
-              />
+          <form onSubmit={handleSignup} className="mt-4">
+            <div className="auth-input-group">
+              <label>Full Name</label>
+              <div className="position-relative">
+                <User className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="text"
+                  className="auth-input-premium ps-5"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
             </div>
-          )}
 
-          {error && <div className="alert alert-danger">{error}</div>}
+            <div className="auth-input-group">
+              <label>Email address</label>
+              <div className="position-relative">
+                <Mail className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="email"
+                  className="auth-input-premium ps-5"
+                  placeholder="email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
 
-          <button type="submit" className="btn btn-success w-100 mb-3">
-            Sign Up as {role.charAt(0).toUpperCase() + role.slice(1)}
-          </button>
-        </form>
+            <div className="auth-input-group">
+              <label>Password</label>
+              <div className="position-relative">
+                <Lock className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                <input
+                  type="password"
+                  className="auth-input-premium ps-5"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
 
-        <hr />
+            {requiresKey && (
+              <div className="auth-input-group">
+                <label>Signup Key</label>
+                <div className="position-relative">
+                  <Key className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={18} />
+                  <input
+                    type="text"
+                    className="auth-input-premium ps-5"
+                    placeholder="Enter key"
+                    value={key}
+                    onChange={(e) => setKey(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
 
-        <p className="text-center mb-0">
-          Already have an account?{" "}
-          <Link to={`/${role}-login`} className="text-decoration-none">
-            Login
-          </Link>
-        </p>
+            {error && <div className="alert alert-danger py-2 px-3 rounded-3 text-sm mb-3">{error}</div>}
+
+            <button
+              type="submit"
+              className="auth-btn-primary mt-4 auth-btn-gold"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="animate-spin" /> : `Create ${role} Account`}
+              {!loading && <ArrowRight size={20} />}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            <p className="text-center text-sm text-muted">
+              Already have an account?{" "}
+              <Link to={`/${role}-login`} className="auth-link-gold">
+                Login
+              </Link>
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="auth-split-right">
+        <div className="text-center" style={{ zIndex: 10 }}>
+          <Sparkles size={80} color="#f59e0b" className="mb-4" />
+          <h1 className="luxury-text-orient">JOIN</h1>
+          <p className="luxury-est">THE ROYAL LEGACY</p>
+        </div>
       </div>
     </div>
   );
