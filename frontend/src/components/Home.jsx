@@ -84,7 +84,7 @@ const Home = () => {
         </motion.div>
       </div>
 
-      <div className="auth-split-right-modern">
+      <div className="auth-split-right">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -92,22 +92,19 @@ const Home = () => {
           className="text-center"
           style={{ position: 'relative', zIndex: 10 }}
         >
-          <div className="brand-badge-indigo mb-4">EST. 1998</div>
+          <div className="brand-badge-indigo mb-4">EST. 1998</div>
           <h1 className="giant-title">ROYAL<br />ORIENT</h1>
           <div style={{ width: '60px', height: '4px', background: '#c5a059', margin: '30px auto' }}></div>
           <p className="vision-text-modern" style={{ maxWidth: '400px', margin: '0 auto' }}>
             Elevating culinary management through digital precision and excellence.
           </p>
-          <div className="d-grid gap-2" style={{ maxWidth: "300px", margin: "auto" }}>
-            <Link to="/signup?role=cashier" className="btn btn-primary btn-sm">
-              Sign Up as Cashier
+          <div className="auth-actions-group">
+            <Link to="/signup?role=cashier" className="auth-btn-glass">
+              <span>Sign Up as Cashier</span>
             </Link>
-            <Link to="/signup?role=kitchen" className="btn btn-dark btn-sm">
-              Sign Up as Kitchen Staff
+            <Link to="/signup?role=kitchen" className="auth-btn-glass secondary">
+              <span>Sign Up as Kitchen Staff</span>
             </Link>
-            {/* <Link to="/signup?role=admin" className="btn btn-success btn-sm">
-              Sign Up as Admin
-            </Link> */}
           </div>
         </motion.div>
       </div>
